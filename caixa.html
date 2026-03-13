@@ -121,15 +121,15 @@
     import { initializeApp } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-app.js";
     import { getDatabase, ref, push, onValue } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-database.js";
 
-    // --- CONFIGURAÇÃO FIREBASE --- {
-  apiKey: "AIzaSyAsqDoeAaHoYc1jhstaldVXfnPRMrUPPwo",
-  authDomain: "lanches-do-professor.firebaseapp.com",
-  projectId: "lanches-do-professor",
-  storageBucket: "lanches-do-professor.firebasestorage.app",
-  messagingSenderId: "805888557726",
-  appId: "1:805888557726:web:41f2ad48ebbc8aac0f318f"
-}
-    const firebaseConfig;
+    // --- CONFIGURAÇÃO FIREBASE CORRIGIDA ---
+    const firebaseConfig = {
+        apiKey: "AIzaSyAsqDoeAaHoYc1jhstaldVXfnPRMrUPPwo",
+        authDomain: "lanches-do-professor.firebaseapp.com",
+        projectId: "lanches-do-professor",
+        storageBucket: "lanches-do-professor.firebasestorage.app",
+        messagingSenderId: "805888557726",
+        appId: "1:805888557726:web:41f2ad48ebbc8aac0f318f"
+    };
 
     const app = initializeApp(firebaseConfig);
     const db = getDatabase(app);
@@ -225,4 +225,3 @@
 </script>
 </body>
 </html>
-
