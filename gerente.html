@@ -23,6 +23,8 @@
         .card small { font-size: 10px; font-weight: bold; color: #7f8c8d; text-transform: uppercase; }
         .card div { font-size: 18px; font-weight: 900; }
 
+        .btn-top { background: var(--danger); color: white; border: none; padding: 8px 15px; border-radius: 5px; font-weight: bold; cursor: pointer; font-size: 12px; }
+        
         .content { display: grid; grid-template-columns: 320px 1fr; gap: 10px; flex: 1; min-height: 0; }
         @media (max-width: 850px) { .content { grid-template-columns: 1fr; } }
 
@@ -44,8 +46,8 @@
         .op-on { color: var(--success); font-weight: bold; font-size: 15px; display: flex; align-items: center; gap: 5px; }
         .op-off { color: var(--danger); font-size: 13px; font-style: italic; }
 
-        .turno-card { padding: 10px; border: 1px solid #ddd; border-radius: 6px; margin-bottom: 10px; background: #fdfdfd; }
-        .turno-card h5 { margin: 0 0 5px 0; color: var(--primary); }
+        .turno-card { padding: 12px; border: 1px solid #ddd; border-radius: 6px; margin-bottom: 10px; background: #fdfdfd; box-shadow: 0 1px 3px rgba(0,0,0,0.05); }
+        .turno-card h5 { margin: 0 0 5px 0; color: var(--primary); font-size: 14px; display: flex; justify-content: space-between; }
     </style>
 </head>
 <body>
@@ -64,7 +66,7 @@
     <div class="header-bar">
         <span><i class="fa-solid fa-crown"></i> <b>CONTROLE TOTAL DO PROFESSOR</b></span>
         <div style="display:flex; gap:10px;">
-            <button onclick="window.gerarRelatorioGerencial()" style="background:rgba(255,255,255,0.2); color:white; border:none; padding:5px 10px; border-radius:5px; cursor:pointer;"><i class="fa-solid fa-file-pdf"></i> PDF DO DIA</button>
+            <button onclick="window.gerarRelatorioGerencial()" style="background:rgba(255,255,255,0.2); color:white; border:none; padding:5px 10px; border-radius:5px; cursor:pointer;"><i class="fa-solid fa-file-pdf"></i> PDF DO DIA GERAL</button>
             <button onclick="window.reiniciarApp()" style="background:var(--danger); color:white; border:none; padding:5px 10px; border-radius:5px; cursor:pointer; font-weight:bold;">ZERAR TUDO (NOVO DIA)</button>
         </div>
     </div>
@@ -85,8 +87,8 @@
 
             <hr style="margin: 20px 0; border:none; border-top:1px solid #eee;">
 
-            <h4 style="margin:0 0 10px 0"><i class="fa-solid fa-file-invoice"></i> TURNOS ENCERRADOS</h4>
-            <div id="lista-turnos" class="scroll" style="max-height: 200px;">
+            <h4 style="margin:0 0 10px 0"><i class="fa-solid fa-file-invoice"></i> CAIXAS ENCERRADOS HOJE</h4>
+            <div id="lista-turnos" class="scroll" style="max-height: 200px; padding-right:5px;">
                 </div>
 
             <hr style="margin: 20px 0; border:none; border-top:1px solid #eee;">
@@ -103,7 +105,7 @@
         </div>
 
         <div class="panel">
-            <h4 style="margin:0 0 10px 0"><i class="fa-solid fa-list-check"></i> Auditoria de Lançamentos (Dia)</h4>
+            <h4 style="margin:0 0 10px 0"><i class="fa-solid fa-list-check"></i> Auditoria de Lançamentos (Estoque do Dia)</h4>
             <div class="scroll">
                 <table>
                     <thead>
@@ -149,7 +151,7 @@
     let dadosAtuais = {};
     let histVendas = [];
     let histDespesas = [];
-    let turnosEncerradosGlobais = {}; // Salva os turnos para gerar o PDF
+    let turnosEncerradosGlobais = {}; // Salva os turnos para gerar o PDF detalhado
 
     window.verificarLogin = () => {
         const u = document.getElementById('login-user').value;
@@ -173,9 +175,9 @@
         const divOp = document.getElementById('status-operador');
         if (opStatus.online) {
             let vOp = 0;
-            histVendas.forEach(v => { if(v.operador === opStatus.nome) vOp += v.total; });
-            divOp.innerHTML = `<div class="op-on"><i class="fa-solid fa-circle-check"></i> ${opStatus.nome.toUpperCase()} logado</div>
-                               <div style="font-size:13px; margin-top:5px; color:#333;"><b>Fundo inf.:</b> R$ ${opStatus.fundo.toFixed(2)}</div>
+            histVendas.forEach(v => { if(v.operador === opStatus.nome && v.tipo_registro === "Venda" && v.metodo !== "Consumo") vOp += v.total; });
+            divOp.innerHTML = `<div class="op-on"><i class="fa-solid fa-circle-check"></i> ${opStatus.nome.toUpperCase()}</div>
+                               <div style="font-size:13px; margin-top:5px; color:#333;"><b>Fundo Inicial:</b> R$ ${opStatus.fundo.toFixed(2)}</div>
                                <div style="font-size:13px; color:#333;"><b>Já Vendeu:</b> R$ ${vOp.toFixed(2)}</div>`;
             divOp.style.borderColor = "var(--success)";
         } else {
@@ -183,7 +185,7 @@
             divOp.style.borderColor = "#b6d4fe";
         }
 
-        // 2. Renderiza Turnos Encerrados (Listagem para baixar o PDF)
+        // 2. Renderiza Turnos Encerrados (Listagem para baixar o PDF do Funcionario)
         const divTurnos = document.getElementById('lista-turnos');
         divTurnos.innerHTML = "";
         if(Object.keys(turnosEncerradosGlobais).length === 0) {
@@ -192,10 +194,10 @@
             Object.entries(turnosEncerradosGlobais).forEach(([id, t]) => {
                 divTurnos.innerHTML += `
                 <div class="turno-card">
-                    <h5>${t.operador.toUpperCase()} <span style="font-size:10px; color:#666; font-weight:normal;">(${t.data_fechamento})</span></h5>
-                    <div style="font-size:11px; margin-bottom:5px;">Gaveta: <b>R$ ${t.deve_ter_na_gaveta.toFixed(2)}</b></div>
-                    <button class="btn-edit" style="width:100%; font-size:11px;" onclick="window.baixarRelatorioDeUmTurno('${id}')">
-                        <i class="fa-solid fa-download"></i> Baixar Relatório do Func.
+                    <h5><span><i class="fa-solid fa-user"></i> ${t.operador.toUpperCase()}</span> <span style="font-size:10px; color:#666; font-weight:normal;">${t.data_fechamento}</span></h5>
+                    <div style="font-size:12px; margin-bottom:5px; color: var(--success); font-weight:bold;">Gaveta (Dinheiro Esperado): R$ ${t.deve_ter_na_gaveta.toFixed(2)}</div>
+                    <button class="btn-edit" style="width:100%; font-size:12px; padding: 8px;" onclick="window.baixarRelatorioDeUmTurno('${id}')">
+                        <i class="fa-solid fa-download"></i> Baixar Relatório Deste Caixa
                     </button>
                 </div>`;
             });
@@ -219,7 +221,7 @@
                     <td>${info.entrada}</td>
                     <td>${info.vendido}</td>
                     <td>${info.saida}</td>
-                    <td><span class="badge ${saldo < 0 ? 'bg-danger' : 'bg-success'}">${saldo}</span></td>
+                    <td style="color:${saldo < 0 ? 'red' : 'green'}; font-weight:bold; font-size: 16px;">${saldo}</td>
                     <td><button class="btn-edit" onclick="window.abrirModalEdicao('${prod}', ${info.entrada}, ${info.vendido}, ${info.saida})"><i class="fa-solid fa-pencil"></i></button></td>
                 </tr>`;
         });
@@ -229,9 +231,11 @@
         let totDinheiro = 0, totCartao = 0, totFiado = 0, totDespesas = 0;
 
         histVendas.forEach(v => {
-            if(v.metodo === 'Dinheiro') totDinheiro += v.total;
-            if(v.metodo === 'Cartão') totCartao += v.total;
-            if(v.metodo === 'Fiado') totFiado += v.total;
+            if(v.tipo_registro === "Venda") {
+                if(v.metodo === 'Dinheiro') totDinheiro += v.total;
+                if(v.metodo === 'Cartão') totCartao += v.total;
+                if(v.metodo === 'Fiado') totFiado += v.total;
+            }
         });
 
         histDespesas.forEach(d => { if(d.tipo === 'Dinheiro') totDespesas += d.valor; });
@@ -239,29 +243,36 @@
         const faturamentoBruto = totDinheiro + totCartao;
         const saldoDinheiroLivre = totDinheiro - totDespesas; 
 
-        document.getElementById('faturamento-bruto').innerText = `R$ ${(totDinheiro + totCartao).toFixed(2).replace('.', ',')}`;
+        document.getElementById('faturamento-bruto').innerText = `R$ ${faturamentoBruto.toFixed(2).replace('.', ',')}`;
         document.getElementById('total-despesas').innerText = `R$ ${totDespesas.toFixed(2).replace('.', ',')}`;
         document.getElementById('total-fiado').innerText = `R$ ${totFiado.toFixed(2).replace('.', ',')}`;
-        document.getElementById('saldo-dinheiro').innerText = `R$ ${(totDinheiro - totDespesas).toFixed(2).replace('.', ',')}`;
+        document.getElementById('saldo-dinheiro').innerText = `R$ ${saldoDinheiroLivre.toFixed(2).replace('.', ',')}`;
     }
 
+    // BUG CORRIGIDO AQUI (Evitava que produtos não listados anteriormente não adicionassem quantidade)
     window.lancarRapido = () => {
         const p = document.getElementById('prod-select').value;
         const q = parseInt(document.getElementById('prod-qty').value);
-        if(isNaN(q)) return;
+        if(isNaN(q) || q <= 0) return alert("Insira uma quantidade válida");
+        
         const infoAntiga = dadosAtuais[p] || { entrada: 0, vendido: 0, saida: 0 };
         set(ref(db, 'lanches/estoque_manual/' + p), { ...infoAntiga, entrada: infoAntiga.entrada + q });
+        
+        document.getElementById('prod-qty').value = "10"; // reseta o campo para facilitar próximo lançamento
+        alert(`Sucesso! +${q} adicionados ao estoque de ${p}`);
     };
 
     window.abrirModalEdicao = (nome, ent, vend, sai) => {
         const nEnt = prompt(`[${nome}] - Mudar ENTRADA para:`, ent); if (nEnt === null) return;
         const nVend = prompt(`[${nome}] - Mudar VENDIDO para:`, vend); if (nVend === null) return;
-        const nSai = prompt(`[${nome}] - Mudar SAÍDA (Perda) para:`, sai); if (nSai === null) return;
+        const nSai = prompt(`[${nome}] - Mudar SAÍDA (Perda/Consumo) para:`, sai); if (nSai === null) return;
         set(ref(db, 'lanches/estoque_manual/' + nome), { entrada: parseInt(nEnt)||0, vendido: parseInt(nVend)||0, saida: parseInt(nSai)||0 });
     };
 
     window.reiniciarApp = () => {
-        if(confirm("LIMPAR TUDO? Apagará vendas, despesas, turnos e estoque da nuvem!")) remove(ref(db, 'lanches/'));
+        if(confirm("LIMPAR TUDO? Apagará vendas, despesas, turnos e estoque da nuvem! Isso é feito no fim do dia de trabalho.")) {
+            remove(ref(db, 'lanches/'));
+        }
     };
 
     // --- FUNÇÃO EXCLUSIVA: GERAR O PDF DO TURNO DO FUNCIONÁRIO ---
@@ -303,7 +314,7 @@
         doc.text(`(-) Despesas do Caixa: R$ ${turno.despesas.toFixed(2)}`, 10, py+12);
         
         doc.setFontSize(11); doc.text(`DEVE TER NA GAVETA (Fundo + Dinheiro - Despesa): R$ ${turno.deve_ter_na_gaveta.toFixed(2)}`, 10, py+20);
-        doc.setFontSize(9); doc.text(`* Fiado: R$ ${turno.fiado.toFixed(2)}`, 10, py+28);
+        doc.setFontSize(9); doc.text(`* Fiado: R$ ${turno.fiado.toFixed(2)} | * Consumo: R$ ${turno.consumo.toFixed(2)}`, 10, py+28);
 
         doc.save(`Turno_${turno.operador}_${turno.data_fechamento.replace(/[\/:]/g, '-')}.pdf`);
     };
@@ -318,8 +329,10 @@
 
         let tD=0, tC=0, tF=0, tCo=0, tDes=0;
         histVendas.forEach(v => {
-            if(v.metodo==='Dinheiro') tD+=v.total; if(v.metodo==='Cartão') tC+=v.total;
-            if(v.metodo==='Fiado') tF+=v.total; if(v.metodo==='Consumo') tCo+=v.total;
+            if(v.tipo_registro === "Venda") {
+                if(v.metodo==='Dinheiro') tD+=v.total; if(v.metodo==='Cartão') tC+=v.total;
+                if(v.metodo==='Fiado') tF+=v.total; if(v.metodo==='Consumo') tCo+=v.total;
+            }
         });
         histDespesas.forEach(d => { if(d.tipo==='Dinheiro') tDes+=d.valor; });
 
@@ -331,7 +344,30 @@
         doc.text(`(-) Despesas do Caixa: R$ ${tDes.toFixed(2)}`, 10, 60);
         doc.setFontSize(11); doc.text(`= LUCRO EM DINHEIRO FÍSICO: R$ ${(tD - tDes).toFixed(2)}`, 10, 67);
 
-        doc.setFontSize(12); doc.text("2. AUDITORIA DE ESTOQUE", 10, 80);
+        doc.setFontSize(12); doc.text("2. HISTÓRICO DE TODAS AS TRANSAÇÕES", 10, 80);
+        const rowsT = [];
+        // Junta vendas
+        histVendas.forEach(v => {
+            if(v.tipo_registro === "Venda") {
+                let res={}; v.itens.forEach(i=>res[i.nome]=(res[i.nome]||0)+1);
+                let det = Object.entries(res).map(([n,q])=>`${q}x ${n}`).join(', ');
+                rowsT.push([v.horario, v.operador, "Venda", det, v.metodo, `R$ ${v.total.toFixed(2)}`]);
+            }
+        });
+        // Junta despesas
+        histDespesas.forEach(d => {
+            rowsT.push([d.hora, d.operador, "Despesa", d.motivo, "Dinheiro", `-R$ ${d.valor.toFixed(2)}`]);
+        });
+
+        // Ordena por horário (do mais antigo para o mais novo)
+        rowsT.sort((a, b) => a[0].localeCompare(b[0]));
+
+        doc.autoTable({ startY: 85, head: [['Hora', 'Op.', 'Tipo', 'Itens', 'Pgto', 'Valor']], body: rowsT, styles: { fontSize: 7 } });
+
+        let py = doc.lastAutoTable.finalY + 15;
+        if(py > 250) { doc.addPage(); py = 20; }
+
+        doc.setFontSize(12); doc.text("3. AUDITORIA DE ESTOQUE FINAL", 10, py);
         const rowsE = [];
         listaProdutos.forEach(p => {
             const inf = dadosAtuais[p] || {entrada:0, vendido:0, saida:0};
@@ -339,7 +375,7 @@
                 rowsE.push([p, inf.entrada, inf.vendido, inf.saida, (inf.entrada - inf.vendido - inf.saida)]);
             }
         });
-        doc.autoTable({ startY: 85, head: [['Produto', 'Entrou', 'Vendeu', 'Saiu/Perda', 'Saldo']], body: rowsE, headStyles: {fillColor:[142,68,173]} });
+        doc.autoTable({ startY: py+5, head: [['Produto', 'Entrou', 'Vendeu', 'Saiu/Perda', 'Saldo']], body: rowsE, headStyles: {fillColor:[142,68,173]} });
 
         doc.save(`Auditoria_Geral_${new Date().toLocaleDateString()}.pdf`);
     };
