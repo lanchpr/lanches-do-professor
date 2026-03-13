@@ -28,13 +28,14 @@
         .content { display: grid; grid-template-columns: 320px 1fr; gap: 10px; flex: 1; min-height: 0; }
         @media (max-width: 850px) { .content { grid-template-columns: 1fr; } }
 
-        .panel { background: white; border-radius: 8px; padding: 15px; border: 1px solid #ddd; display: flex; flex-direction: column; overflow: hidden; }
+        /* CORRIGIDO: overflow-y: auto garante que o painel role e o botão não suma */
+        .panel { background: white; border-radius: 8px; padding: 15px; border: 1px solid #ddd; display: flex; flex-direction: column; overflow-y: auto; }
         .scroll { flex: 1; overflow-y: auto; }
         
         label { font-size: 12px; font-weight: bold; display: block; margin-top: 10px; }
         select, input { width: 100%; padding: 10px; border: 1px solid #ddd; border-radius: 6px; margin-top: 5px; }
         
-        .btn { width: 100%; padding: 12px; border: none; border-radius: 6px; font-weight: bold; cursor: pointer; color: white; margin-top: 15px; }
+        .btn { width: 100%; padding: 12px; border: none; border-radius: 6px; font-weight: bold; cursor: pointer; color: white; margin-top: 10px; }
         .btn-add { background: var(--success); }
         
         table { width: 100%; border-collapse: collapse; font-size: 13px; }
@@ -85,13 +86,7 @@
                 <div class="op-off">Nenhum operador logado agora.</div>
             </div>
 
-            <hr style="margin: 20px 0; border:none; border-top:1px solid #eee;">
-
-            <h4 style="margin:0 0 10px 0"><i class="fa-solid fa-file-invoice"></i> CAIXAS ENCERRADOS HOJE</h4>
-            <div id="lista-turnos" class="scroll" style="max-height: 200px; padding-right:5px;">
-                </div>
-
-            <hr style="margin: 20px 0; border:none; border-top:1px solid #eee;">
+            <hr style="margin: 15px 0; border:none; border-top:1px solid #eee;">
 
             <h4 style="margin:0"><i class="fa-solid fa-cart-plus"></i> Abastecer Loja</h4>
             <select id="prod-select">
@@ -101,7 +96,13 @@
                 <optgroup label="Outros"><option>Cigarro Var.</option><option>Cigarro G</option><option>Bala Drop</option></optgroup>
             </select>
             <input type="number" id="prod-qty" value="10">
-            <button class="btn btn-add" onclick="window.lancarRapido()">SOMAR AO ESTOQUE</button>
+            <button class="btn btn-add" style="margin-bottom: 5px;" onclick="window.lancarRapido()">SOMAR AO ESTOQUE</button>
+
+            <hr style="margin: 15px 0; border:none; border-top:1px solid #eee;">
+
+            <h4 style="margin:0 0 10px 0"><i class="fa-solid fa-file-invoice"></i> CAIXAS ENCERRADOS HOJE</h4>
+            <div id="lista-turnos" style="flex: 1; overflow-y: auto; padding-right:5px; min-height: 100px;">
+                </div>
         </div>
 
         <div class="panel">
@@ -151,7 +152,7 @@
     let dadosAtuais = {};
     let histVendas = [];
     let histDespesas = [];
-    let turnosEncerradosGlobais = {}; // Salva os turnos para gerar o PDF detalhado
+    let turnosEncerradosGlobais = {}; 
 
     window.verificarLogin = () => {
         const u = document.getElementById('login-user').value;
@@ -175,9 +176,13 @@
         const divOp = document.getElementById('status-operador');
         if (opStatus.online) {
             let vOp = 0;
-            histVendas.forEach(v => { if(v.operador === opStatus.nome && v.tipo_registro === "Venda" && v.metodo !== "Consumo") vOp += v.total; });
+            histVendas.forEach(v => { 
+                if(v.operador === opStatus.nome && v.tipo_registro === "Venda" && v.metodo !== "Consumo") {
+                    vOp += v.total; 
+                }
+            });
             divOp.innerHTML = `<div class="op-on"><i class="fa-solid fa-circle-check"></i> ${opStatus.nome.toUpperCase()}</div>
-                               <div style="font-size:13px; margin-top:5px; color:#333;"><b>Fundo Inicial:</b> R$ ${opStatus.fundo.toFixed(2)}</div>
+                               <div style="font-size:13px; margin-top:5px; color:#333;"><b>Fundo Inicial:</b> R$ ${(opStatus.fundo || 0).toFixed(2)}</div>
                                <div style="font-size:13px; color:#333;"><b>Já Vendeu:</b> R$ ${vOp.toFixed(2)}</div>`;
             divOp.style.borderColor = "var(--success)";
         } else {
@@ -192,11 +197,12 @@
             divTurnos.innerHTML = "<span style='font-size:12px; color:#999;'>Nenhum caixa foi fechado hoje.</span>";
         } else {
             Object.entries(turnosEncerradosGlobais).forEach(([id, t]) => {
+                const gaveta = t.deve_ter_na_gaveta || 0;
                 divTurnos.innerHTML += `
                 <div class="turno-card">
                     <h5><span><i class="fa-solid fa-user"></i> ${t.operador.toUpperCase()}</span> <span style="font-size:10px; color:#666; font-weight:normal;">${t.data_fechamento}</span></h5>
-                    <div style="font-size:12px; margin-bottom:5px; color: var(--success); font-weight:bold;">Gaveta (Dinheiro Esperado): R$ ${t.deve_ter_na_gaveta.toFixed(2)}</div>
-                    <button class="btn-edit" style="width:100%; font-size:12px; padding: 8px;" onclick="window.baixarRelatorioDeUmTurno('${id}')">
+                    <div style="font-size:12px; margin-bottom:5px; color: var(--success); font-weight:bold;">Gaveta (Dinheiro): R$ ${gaveta.toFixed(2)}</div>
+                    <button class="btn-edit" style="width:100%; font-size:11px; padding: 8px;" onclick="window.baixarRelatorioDeUmTurno('${id}')">
                         <i class="fa-solid fa-download"></i> Baixar Relatório Deste Caixa
                     </button>
                 </div>`;
@@ -249,24 +255,33 @@
         document.getElementById('saldo-dinheiro').innerText = `R$ ${saldoDinheiroLivre.toFixed(2).replace('.', ',')}`;
     }
 
-    // BUG CORRIGIDO AQUI (Evitava que produtos não listados anteriormente não adicionassem quantidade)
+    // BUG CORRIGIDO: Lança a quantidade e reseta o input
     window.lancarRapido = () => {
         const p = document.getElementById('prod-select').value;
         const q = parseInt(document.getElementById('prod-qty').value);
         if(isNaN(q) || q <= 0) return alert("Insira uma quantidade válida");
         
         const infoAntiga = dadosAtuais[p] || { entrada: 0, vendido: 0, saida: 0 };
-        set(ref(db, 'lanches/estoque_manual/' + p), { ...infoAntiga, entrada: infoAntiga.entrada + q });
-        
-        document.getElementById('prod-qty').value = "10"; // reseta o campo para facilitar próximo lançamento
-        alert(`Sucesso! +${q} adicionados ao estoque de ${p}`);
+        set(ref(db, 'lanches/estoque_manual/' + p), { 
+            entrada: (infoAntiga.entrada || 0) + q,
+            vendido: infoAntiga.vendido || 0,
+            saida: infoAntiga.saida || 0
+        }).then(() => {
+            document.getElementById('prod-qty').value = "10"; 
+            alert(`Sucesso! +${q} adicionados ao estoque de ${p}`);
+        }).catch(err => alert("Erro ao conectar com a nuvem."));
     };
 
     window.abrirModalEdicao = (nome, ent, vend, sai) => {
         const nEnt = prompt(`[${nome}] - Mudar ENTRADA para:`, ent); if (nEnt === null) return;
         const nVend = prompt(`[${nome}] - Mudar VENDIDO para:`, vend); if (nVend === null) return;
         const nSai = prompt(`[${nome}] - Mudar SAÍDA (Perda/Consumo) para:`, sai); if (nSai === null) return;
-        set(ref(db, 'lanches/estoque_manual/' + nome), { entrada: parseInt(nEnt)||0, vendido: parseInt(nVend)||0, saida: parseInt(nSai)||0 });
+        
+        set(ref(db, 'lanches/estoque_manual/' + nome), { 
+            entrada: parseInt(nEnt)||0, 
+            vendido: parseInt(nVend)||0, 
+            saida: parseInt(nSai)||0 
+        });
     };
 
     window.reiniciarApp = () => {
@@ -275,10 +290,10 @@
         }
     };
 
-    // --- FUNÇÃO EXCLUSIVA: GERAR O PDF DO TURNO DO FUNCIONÁRIO ---
+    // --- FUNÇÃO EXCLUSIVA: GERAR O PDF DO TURNO DO FUNCIONÁRIO (COM TRAVAS CONTRA BUGS) ---
     window.baixarRelatorioDeUmTurno = (idTurno) => {
         const turno = turnosEncerradosGlobais[idTurno];
-        if(!turno) return;
+        if(!turno) return alert("Turno não encontrado.");
 
         const { jsPDF } = window.jspdf;
         const doc = new jsPDF();
@@ -286,13 +301,16 @@
         doc.setFontSize(16); doc.text("Lanches do Professor - Fechamento de Caixa", 10, 15);
         doc.setFontSize(10); 
         doc.text(`Operador: ${turno.operador.toUpperCase()} | Encerrado em: ${turno.data_fechamento}`, 10, 22);
-        doc.text(`Fundo Inicial na Gaveta: R$ ${turno.fundo_inicial.toFixed(2)}`, 10, 28);
+        doc.text(`Fundo Inicial na Gaveta: R$ ${(turno.fundo_inicial || 0).toFixed(2)}`, 10, 28);
 
         const rows = [];
         if(turno.historico_detalhado) {
             turno.historico_detalhado.forEach(reg => {
                 if(reg.tipo_registro === "Venda") {
-                    let rI={}; reg.itens.forEach(i=>rI[i.nome]=(rI[i.nome]||0)+1);
+                    let rI={}; 
+                    if(reg.itens) {
+                        reg.itens.forEach(i=>rI[i.nome]=(rI[i.nome]||0)+1);
+                    }
                     let det = Object.entries(rI).map(([n,q])=>`${q}x ${n}`).join(', ');
                     rows.push([reg.horario, "Venda", det, reg.metodo, `R$ ${reg.total.toFixed(2)}`]);
                 } else if (reg.tipo_registro === "Despesa (Dinheiro)") {
@@ -310,11 +328,11 @@
 
         doc.setFontSize(11); doc.text("RESUMO FINANCEIRO DO TURNO:", 10, py);
         doc.setFontSize(9);
-        doc.text(`(+) Dinheiro: R$ ${turno.vendas_dinheiro.toFixed(2)} | (+) Cartão: R$ ${turno.vendas_cartao.toFixed(2)}`, 10, py+6);
-        doc.text(`(-) Despesas do Caixa: R$ ${turno.despesas.toFixed(2)}`, 10, py+12);
+        doc.text(`(+) Dinheiro: R$ ${(turno.vendas_dinheiro || 0).toFixed(2)} | (+) Cartão: R$ ${(turno.vendas_cartao || 0).toFixed(2)}`, 10, py+6);
+        doc.text(`(-) Despesas do Caixa: R$ ${(turno.despesas || 0).toFixed(2)}`, 10, py+12);
         
-        doc.setFontSize(11); doc.text(`DEVE TER NA GAVETA (Fundo + Dinheiro - Despesa): R$ ${turno.deve_ter_na_gaveta.toFixed(2)}`, 10, py+20);
-        doc.setFontSize(9); doc.text(`* Fiado: R$ ${turno.fiado.toFixed(2)} | * Consumo: R$ ${turno.consumo.toFixed(2)}`, 10, py+28);
+        doc.setFontSize(11); doc.text(`DEVE TER NA GAVETA (Fundo + Dinheiro - Despesa): R$ ${(turno.deve_ter_na_gaveta || 0).toFixed(2)}`, 10, py+20);
+        doc.setFontSize(9); doc.text(`* Fiado: R$ ${(turno.fiado || 0).toFixed(2)} | * Consumo: R$ ${(turno.consumo || 0).toFixed(2)}`, 10, py+28);
 
         doc.save(`Turno_${turno.operador}_${turno.data_fechamento.replace(/[\/:]/g, '-')}.pdf`);
     };
@@ -346,20 +364,20 @@
 
         doc.setFontSize(12); doc.text("2. HISTÓRICO DE TODAS AS TRANSAÇÕES", 10, 80);
         const rowsT = [];
-        // Junta vendas
+        
         histVendas.forEach(v => {
             if(v.tipo_registro === "Venda") {
-                let res={}; v.itens.forEach(i=>res[i.nome]=(res[i.nome]||0)+1);
+                let res={}; 
+                if(v.itens) v.itens.forEach(i=>res[i.nome]=(res[i.nome]||0)+1);
                 let det = Object.entries(res).map(([n,q])=>`${q}x ${n}`).join(', ');
                 rowsT.push([v.horario, v.operador, "Venda", det, v.metodo, `R$ ${v.total.toFixed(2)}`]);
             }
         });
-        // Junta despesas
+        
         histDespesas.forEach(d => {
             rowsT.push([d.hora, d.operador, "Despesa", d.motivo, "Dinheiro", `-R$ ${d.valor.toFixed(2)}`]);
         });
 
-        // Ordena por horário (do mais antigo para o mais novo)
         rowsT.sort((a, b) => a[0].localeCompare(b[0]));
 
         doc.autoTable({ startY: 85, head: [['Hora', 'Op.', 'Tipo', 'Itens', 'Pgto', 'Valor']], body: rowsT, styles: { fontSize: 7 } });
@@ -377,7 +395,7 @@
         });
         doc.autoTable({ startY: py+5, head: [['Produto', 'Entrou', 'Vendeu', 'Saiu/Perda', 'Saldo']], body: rowsE, headStyles: {fillColor:[142,68,173]} });
 
-        doc.save(`Auditoria_Geral_${new Date().toLocaleDateString()}.pdf`);
+        doc.save(`Auditoria_Geral_${new Date().toLocaleDateString().replace(/[\/:]/g, '-')}.pdf`);
     };
 </script>
 </body>
