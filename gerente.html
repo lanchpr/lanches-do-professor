@@ -34,16 +34,15 @@
         
         .btn { width: 100%; padding: 12px; border: none; border-radius: 6px; font-weight: bold; cursor: pointer; color: white; margin-top: 15px; }
         .btn-add { background: var(--success); }
-        .btn-reset { background: var(--danger); font-size: 11px; }
         
         table { width: 100%; border-collapse: collapse; font-size: 13px; }
         th { background: #f8f9fa; padding: 12px; text-align: left; position: sticky; top: 0; z-index: 10; border-bottom: 2px solid #ddd; }
         td { padding: 12px; border-bottom: 1px solid #eee; }
-        
         .btn-edit { background: var(--info); border: none; color: white; padding: 5px 8px; border-radius: 4px; cursor: pointer; }
-        .badge { padding: 4px 8px; border-radius: 4px; font-weight: bold; }
-        .bg-success { background: #d4edda; color: #155724; }
-        .bg-danger { background: #f8d7da; color: #721c24; }
+        
+        .badge-op { padding: 8px; background: #e8f4f8; border: 1px solid #b6d4fe; border-radius: 6px; margin-top: 10px; }
+        .op-on { color: var(--success); font-weight: bold; font-size: 14px; }
+        .op-off { color: var(--danger); font-size: 12px; font-style: italic; }
     </style>
 </head>
 <body>
@@ -62,36 +61,36 @@
     <div class="header-bar">
         <span><i class="fa-solid fa-crown"></i> <b>CONTROLE TOTAL DO PROFESSOR</b></span>
         <div style="display:flex; gap:10px;">
-            <button onclick="window.baixarRelatorio()" style="background:rgba(255,255,255,0.2); color:white; border:none; padding:5px 10px; border-radius:5px; cursor:pointer;"><i class="fa-solid fa-file-pdf"></i> PDF</button>
-            <button onclick="window.reiniciarApp()" style="background:var(--danger); color:white; border:none; padding:5px 10px; border-radius:5px; cursor:pointer; font-weight:bold;">REINICIAR DIA</button>
+            <button onclick="window.gerarRelatorioGerencial()" style="background:rgba(255,255,255,0.2); color:white; border:none; padding:5px 10px; border-radius:5px; cursor:pointer;"><i class="fa-solid fa-file-pdf"></i> PDF COMPLETO</button>
+            <button onclick="window.reiniciarApp()" style="background:var(--danger); color:white; border:none; padding:5px 10px; border-radius:5px; cursor:pointer; font-weight:bold;">Zerar Nuvem</button>
         </div>
     </div>
 
     <div class="stats">
-        <div class="card"><small>Entradas</small><div id="total-ent">0</div></div>
-        <div class="card" style="border-left-color: var(--success)"><small>Vendidos</small><div id="total-vend">0</div></div>
-        <div class="card" style="border-left-color: var(--danger)"><small>Saídas</small><div id="total-sai">0</div></div>
-        <div class="card" style="border-left-color: var(--info)"><small>Saldo</small><div id="total-sal">0</div></div>
+        <div class="card"><small>Faturamento Bruto (Din+Cart)</small><div id="faturamento-bruto">R$ 0,00</div></div>
+        <div class="card" style="border-left-color: var(--danger)"><small>Despesas Caixa</small><div id="total-despesas">R$ 0,00</div></div>
+        <div class="card" style="border-left-color: var(--info)"><small>Fiado Pendente</small><div id="total-fiado">R$ 0,00</div></div>
+        <div class="card" style="border-left-color: var(--success)"><small>Saldo Dinheiro (Sem Fundo)</small><div id="saldo-dinheiro">R$ 0,00</div></div>
     </div>
 
     <div class="content">
         <div class="panel">
+            <h4 style="margin:0 0 5px 0"><i class="fa-solid fa-desktop"></i> Caixa no Momento</h4>
+            <div id="status-operador" class="badge-op">
+                <div class="op-off">Nenhum operador logado agora.</div>
+            </div>
+
+            <hr style="margin: 20px 0; border:none; border-top:1px solid #eee;">
+
             <h4 style="margin:0"><i class="fa-solid fa-cart-plus"></i> Abastecer Loja</h4>
-            <label>Escolha o Produto:</label>
             <select id="prod-select">
                 <optgroup label="Cafés"><option>Café P</option><option>Café M</option><option>Café G</option><option>Café Extra</option><option>Café Especial</option></optgroup>
                 <optgroup label="Bebidas"><option>Coca Lata</option><option>Coquinha</option><option>Guaraná Nat.</option><option>Água Gás</option><option>Água Nat.</option><option>Rodízio Cana</option><option>Caldo Garrafa</option></optgroup>
                 <optgroup label="Alimentos"><option>Pastel Especial</option><option>Pastel Comum</option><option>Salgado</option><option>Bolo Fatia</option></optgroup>
                 <optgroup label="Outros"><option>Cigarro Var.</option><option>Cigarro G</option><option>Bala Drop</option></optgroup>
             </select>
-            <label>Quantidade a ADICIONAR:</label>
             <input type="number" id="prod-qty" value="10">
             <button class="btn btn-add" onclick="window.lancarRapido()">SOMAR AO ESTOQUE</button>
-            
-            <p style="font-size:11px; color:#666; margin-top:20px; line-height:1.4;">
-                * Use este bloco para entradas rápidas.<br>
-                * Use o botão "Editar" na tabela para correções específicas de venda ou perda.
-            </p>
         </div>
 
         <div class="panel">
@@ -103,8 +102,8 @@
                             <th>Produto</th>
                             <th>Entrada</th>
                             <th>Vendido</th>
-                            <th>Saída</th>
-                            <th>Saldo</th>
+                            <th>Saída (Perda)</th>
+                            <th>Saldo Físico</th>
                             <th>Editar</th>
                         </tr>
                     </thead>
@@ -139,6 +138,8 @@
     ];
 
     let dadosAtuais = {};
+    let histVendas = [];
+    let histDespesas = [];
 
     window.verificarLogin = () => {
         const u = document.getElementById('login-user').value;
@@ -149,20 +150,36 @@
         } else { alert("Login ou senha incorretos!"); }
     };
 
-    onValue(ref(db, 'lanches/estoque_manual'), (snapshot) => {
-        dadosAtuais = snapshot.val() || {};
-        renderizarTabela(dadosAtuais);
+    onValue(ref(db, 'lanches/'), (snapshot) => {
+        const dbNuvem = snapshot.val() || {};
+        dadosAtuais = dbNuvem.estoque_manual || {};
+        histVendas = dbNuvem.vendas ? Object.values(dbNuvem.vendas) : [];
+        histDespesas = dbNuvem.despesas ? Object.values(dbNuvem.despesas) : [];
+        
+        // Atualiza Aba Operador
+        const opStatus = dbNuvem.status_operador || { online: false };
+        const divOp = document.getElementById('status-operador');
+        if (opStatus.online) {
+            // Calcula quanto esse operador vendeu
+            let vOp = 0;
+            histVendas.forEach(v => { if(v.operador === opStatus.nome) vOp += v.total; });
+            divOp.innerHTML = `<div class="op-on">● ${opStatus.nome.toUpperCase()} logado</div>
+                               <div style="font-size:12px; margin-top:3px; color:#555;">Fundo inf.: R$ ${opStatus.fundo.toFixed(2)} | Vendeu: R$ ${vOp.toFixed(2)}</div>`;
+        } else {
+            divOp.innerHTML = `<div class="op-off">Nenhum operador logado agora.</div>`;
+        }
+
+        renderizarTabela();
+        calcularFinanceiro();
     });
 
-    function renderizarTabela(data) {
+    function renderizarTabela() {
         const tbody = document.getElementById('audit-table');
         tbody.innerHTML = "";
-        let tEnt = 0, tVend = 0, tSai = 0, tSal = 0;
 
         listaProdutos.forEach(prod => {
-            const info = data[prod] || { entrada: 0, vendido: 0, saida: 0 };
+            const info = dadosAtuais[prod] || { entrada: 0, vendido: 0, saida: 0 };
             const saldo = info.entrada - info.vendido - info.saida;
-            tEnt += info.entrada; tVend += info.vendido; tSai += info.saida; tSal += saldo;
 
             tbody.innerHTML += `
                 <tr>
@@ -170,62 +187,98 @@
                     <td>${info.entrada}</td>
                     <td>${info.vendido}</td>
                     <td>${info.saida}</td>
-                    <td><span class="badge ${saldo < 0 ? 'bg-danger' : 'bg-success'}">${saldo}</span></td>
+                    <td style="color:${saldo < 0 ? 'red' : 'green'}; font-weight:bold;">${saldo}</td>
                     <td><button class="btn-edit" onclick="window.abrirModalEdicao('${prod}', ${info.entrada}, ${info.vendido}, ${info.saida})"><i class="fa-solid fa-pencil"></i></button></td>
                 </tr>`;
         });
-
-        document.getElementById('total-ent').innerText = tEnt;
-        document.getElementById('total-vend').innerText = tVend;
-        document.getElementById('total-sai').innerText = tSai;
-        document.getElementById('total-sal').innerText = tSal;
     }
 
-    // FUNÇÃO DO BLOCO DE LANÇAMENTO (ADICIONAR)
+    function calcularFinanceiro() {
+        let totDinheiro = 0, totCartao = 0, totFiado = 0, totDespesas = 0;
+
+        histVendas.forEach(v => {
+            if(v.metodo === 'Dinheiro') totDinheiro += v.total;
+            if(v.metodo === 'Cartão') totCartao += v.total;
+            if(v.metodo === 'Fiado') totFiado += v.total;
+        });
+
+        histDespesas.forEach(d => { if(d.tipo === 'Dinheiro') totDespesas += d.valor; });
+
+        document.getElementById('faturamento-bruto').innerText = `R$ ${(totDinheiro + totCartao).toFixed(2).replace('.', ',')}`;
+        document.getElementById('total-despesas').innerText = `R$ ${totDespesas.toFixed(2).replace('.', ',')}`;
+        document.getElementById('total-fiado').innerText = `R$ ${totFiado.toFixed(2).replace('.', ',')}`;
+        document.getElementById('saldo-dinheiro').innerText = `R$ ${(totDinheiro - totDespesas).toFixed(2).replace('.', ',')}`;
+    }
+
     window.lancarRapido = () => {
         const p = document.getElementById('prod-select').value;
         const q = parseInt(document.getElementById('prod-qty').value);
         if(isNaN(q)) return;
-
         const infoAntiga = dadosAtuais[p] || { entrada: 0, vendido: 0, saida: 0 };
-        set(ref(db, 'lanches/estoque_manual/' + p), {
-            ...infoAntiga,
-            entrada: infoAntiga.entrada + q
-        });
-        alert(`+${q} adicionados ao estoque de ${p}`);
+        set(ref(db, 'lanches/estoque_manual/' + p), { ...infoAntiga, entrada: infoAntiga.entrada + q });
     };
 
-    // FUNÇÃO DA TABELA (EDITAR VALOR ESPECÍFICO)
     window.abrirModalEdicao = (nome, ent, vend, sai) => {
-        const nEnt = prompt(`[${nome}] - Mudar TOTAL ENTRADA para:`, ent);
-        if (nEnt === null) return;
-        const nVend = prompt(`[${nome}] - Mudar TOTAL VENDIDO para:`, vend);
-        if (nVend === null) return;
-        const nSai = prompt(`[${nome}] - Mudar TOTAL SAÍDA para:`, sai);
-        if (nSai === null) return;
-
-        set(ref(db, 'lanches/estoque_manual/' + nome), {
-            entrada: parseInt(nEnt) || 0,
-            vendido: parseInt(nVend) || 0,
-            saida: parseInt(nSai) || 0
-        });
+        const nEnt = prompt(`[${nome}] - Mudar ENTRADA para:`, ent); if (nEnt === null) return;
+        const nVend = prompt(`[${nome}] - Mudar VENDIDO para:`, vend); if (nVend === null) return;
+        const nSai = prompt(`[${nome}] - Mudar SAÍDA (Perda) para:`, sai); if (nSai === null) return;
+        set(ref(db, 'lanches/estoque_manual/' + nome), { entrada: parseInt(nEnt)||0, vendido: parseInt(nVend)||0, saida: parseInt(nSai)||0 });
     };
 
     window.reiniciarApp = () => {
-        if(confirm("LIMPAR TUDO? Isso apaga todas as vendas e estoques do dia!")) {
-            remove(ref(db, 'lanches/'));
-        }
+        if(confirm("LIMPAR TUDO? Apagará vendas, despesas e estoque da nuvem!")) remove(ref(db, 'lanches/'));
     };
 
-    window.baixarRelatorio = () => {
+    // RELATÓRIO PDF DO GERENTE (TUDO JUNTO)
+    window.gerarRelatorioGerencial = () => {
         const { jsPDF } = window.jspdf;
         const doc = new jsPDF();
-        doc.text("Auditoria Global - Lanches do Professor", 14, 15);
-        const rows = Array.from(document.querySelectorAll("#audit-table tr")).map(tr => 
-            Array.from(tr.cells).slice(0, 5).map(td => td.innerText)
-        );
-        doc.autoTable({ startY: 25, head: [['Produto', 'Entrada', 'Vendido', 'Saída', 'Saldo']], body: rows });
-        doc.save("Relatorio_Professor.pdf");
+        
+        doc.setFontSize(18); doc.text("FECHAMENTO GERAL DA GESTÃO", 10, 15);
+        doc.setFontSize(10); doc.text(`Data do Relatório: ${new Date().toLocaleString('pt-BR')}`, 10, 22);
+
+        let tD=0, tC=0, tF=0, tCo=0, tDes=0;
+        histVendas.forEach(v => {
+            if(v.metodo==='Dinheiro') tD+=v.total; if(v.metodo==='Cartão') tC+=v.total;
+            if(v.metodo==='Fiado') tF+=v.total; if(v.metodo==='Consumo') tCo+=v.total;
+        });
+        histDespesas.forEach(d => { if(d.tipo==='Dinheiro') tDes+=d.valor; });
+
+        doc.setFontSize(12); doc.text("1. RESUMO FINANCEIRO GLOBAL", 10, 35);
+        doc.setFontSize(10);
+        doc.text(`Total Vendido no Dinheiro: R$ ${tD.toFixed(2)}`, 10, 42);
+        doc.text(`Total Vendido no Cartão: R$ ${tC.toFixed(2)}`, 10, 47);
+        doc.text(`FATURAMENTO BRUTO (Din+Cart): R$ ${(tD + tC).toFixed(2)}`, 10, 53);
+        doc.text(`(-) Despesas do Caixa: R$ ${tDes.toFixed(2)}`, 10, 60);
+        doc.setFontSize(11); doc.text(`= LUCRO EM DINHEIRO FÍSICO: R$ ${(tD - tDes).toFixed(2)}`, 10, 67);
+
+        doc.setFontSize(12); doc.text("2. HISTÓRICO DE TRANSAÇÕES", 10, 80);
+        const rowsT = [];
+        histVendas.forEach(v => {
+            let res={}; v.itens.forEach(i=>res[i.nome]=(res[i.nome]||0)+1);
+            let det = Object.entries(res).map(([n,q])=>`${q}x ${n}`).join(', ');
+            rowsT.push([v.horario, v.operador, "Venda", det, v.metodo, `R$ ${v.total.toFixed(2)}`]);
+        });
+        histDespesas.forEach(d => {
+            rowsT.push([d.hora, d.operador, "Despesa", d.motivo, "Dinheiro", `-R$ ${d.valor.toFixed(2)}`]);
+        });
+
+        doc.autoTable({ startY: 85, head: [['Hora', 'Op.', 'Tipo', 'Itens', 'Pgto', 'Valor']], body: rowsT, styles: { fontSize: 7 } });
+
+        let py = doc.lastAutoTable.finalY + 15;
+        if(py > 250) { doc.addPage(); py = 20; }
+
+        doc.setFontSize(12); doc.text("3. AUDITORIA DE ESTOQUE", 10, py);
+        const rowsE = [];
+        listaProdutos.forEach(p => {
+            const inf = dadosAtuais[p] || {entrada:0, vendido:0, saida:0};
+            if(inf.entrada>0 || inf.vendido>0 || inf.saida>0) {
+                rowsE.push([p, inf.entrada, inf.vendido, inf.saida, (inf.entrada - inf.vendido - inf.saida)]);
+            }
+        });
+        doc.autoTable({ startY: py+5, head: [['Produto', 'Entrou', 'Vendeu', 'Saiu/Perda', 'Saldo']], body: rowsE, headStyles: {fillColor:[142,68,173]} });
+
+        doc.save(`Auditoria_${new Date().toLocaleDateString()}.pdf`);
     };
 </script>
 </body>
