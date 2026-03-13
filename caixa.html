@@ -42,7 +42,6 @@
         .cart-list { flex: 1; overflow-y: auto; margin-bottom: 10px; border-bottom: 2px solid #eee; }
         .cart-item { display: flex; flex-direction: column; padding: 12px 0; border-bottom: 1px solid #f0f0f0; cursor: pointer; }
         .cart-item-main { display: flex; justify-content: space-between; align-items: center; font-size: 20px; font-weight: 800; }
-        .cart-item-obs { font-size: 14px; color: #e67e22; font-style: italic; margin-top: 5px; }
         
         .total-box { padding: 15px 0; text-align: right; flex-shrink: 0; }
         .total-val { font-size: 70px; font-weight: 900; color: var(--primary); line-height: 1; letter-spacing: -2px; }
@@ -54,10 +53,9 @@
         .btn-consumo { background: #34495e; }
         .btn-despesa { background: var(--danger); font-size: 16px; padding: 12px; }
 
-        label { font-size: 20px; font-weight: bold; }
-        input { width: 100%; padding: 18px; border: 2px solid #ddd; border-radius: 10px; margin-top: 8px; margin-bottom: 15px; font-size: 20px; font-weight: bold; }
+        label { font-size: 20px; font-weight: bold; display: block; margin-top: 10px;}
+        input { width: 100%; padding: 18px; border: 2px solid #ddd; border-radius: 10px; margin-top: 5px; margin-bottom: 15px; font-size: 20px; font-weight: bold; }
 
-        /* Status da Conexão */
         #status-net { font-size: 14px; padding: 5px 10px; border-radius: 5px; font-weight: bold; }
         .net-on { background: var(--success); color: white; }
         .net-off { background: var(--danger); color: white; animation: pisca 1s infinite alternate; }
@@ -83,6 +81,7 @@
         <div class="login-card">
             <h2>ABRIR TURNO</h2>
             <div style="text-align: left; margin-bottom: 10px;">
+                <label>Operador:</label>
                 <input type="text" id="cashier-name" placeholder="Seu Nome">
                 <label>Fundo de Caixa Inicial (R$):</label>
                 <input type="number" id="initial-balance" value="0.00">
@@ -156,7 +155,7 @@
 
 <script type="module">
     import { initializeApp } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-app.js";
-    import { getDatabase, ref, push, get, set } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-database.js";
+    import { getDatabase, ref, push, get, set, remove } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-database.js";
 
     const firebaseConfig = {
         apiKey: "AIzaSyAsqDoeAaHoYc1jhstaldVXfnPRMrUPPwo",
@@ -172,40 +171,40 @@
 
     let dbLocal = { funcionarioAtivo: "", fundoAtivo: 0 };
     let carrinho = [];
-    
-    // Variável para vendas offline
     let vendasOffline = JSON.parse(localStorage.getItem('vendasPendentes') || "[]");
 
-    // Monitoramento da Conexão
     const statusEl = document.getElementById('status-net');
-    window.addEventListener('online', () => {
-        statusEl.className = 'net-on'; statusEl.innerText = 'ONLINE';
-        sincronizarVendasOffline();
-    });
-    window.addEventListener('offline', () => {
-        statusEl.className = 'net-off'; statusEl.innerText = 'OFFLINE';
-    });
+    window.addEventListener('online', () => { statusEl.className = 'net-on'; statusEl.innerText = 'ONLINE'; sincronizarVendasOffline(); });
+    window.addEventListener('offline', () => { statusEl.className = 'net-off'; statusEl.innerText = 'OFFLINE'; });
 
-    // VERIFICAR SESSÃO ATIVA AO CARREGAR A PÁGINA
+    // CARREGA SESSÃO SE DER F5
     window.onload = () => {
         const sessaoAtiva = localStorage.getItem('operadorLogado');
         const fundoAtivo = localStorage.getItem('fundoOperador');
         const admLogado = localStorage.getItem('admLogado');
 
         if (sessaoAtiva && fundoAtivo) {
-            // Se já tem operador logado (página atualizada ou net caiu), pula as telas de login
             dbLocal.funcionarioAtivo = sessaoAtiva;
             dbLocal.fundoAtivo = parseFloat(fundoAtivo);
             document.getElementById('screen-adm').style.display = 'none';
             document.getElementById('screen-open').style.display = 'none';
             document.getElementById('screen-pdv').classList.add('active');
             document.getElementById('info-topo').innerHTML = `${sessaoAtiva.toUpperCase()} | FUNDO: R$ ${dbLocal.fundoAtivo.toFixed(2)}`;
+            
+            // Avisa o Gerente que voltou
+            if(navigator.onLine) set(ref(db, 'lanches/status_operador'), { nome: sessaoAtiva, online: true, fundo: dbLocal.fundoAtivo });
         } else if (admLogado === 'true') {
-            // Se o ADM liberou, mas o operador ainda não abriu turno
             document.getElementById('screen-adm').style.display = 'none';
             document.getElementById('screen-open').style.display = 'flex';
         }
     };
+
+    // QUANDO FECHA A ABA OU ATUALIZA
+    window.addEventListener('beforeunload', () => {
+        if(dbLocal.funcionarioAtivo && navigator.onLine) {
+            set(ref(db, 'lanches/status_operador/online'), false);
+        }
+    });
 
     window.verificarAdm = () => {
         const u = document.getElementById('adm-user').value;
@@ -225,26 +224,19 @@
         dbLocal.funcionarioAtivo = nome;
         dbLocal.fundoAtivo = isNaN(fundo) ? 0 : fundo;
         
-        // Salva a sessão no localStorage para resistir a refresh (F5) e quedas de energia/net
-        localStorage.setItem('operadorLogado', dbLocal.funcionarioAtivo);
+        localStorage.setItem('operadorLogado', nome);
         localStorage.setItem('fundoOperador', dbLocal.fundoAtivo);
+        if(!localStorage.getItem('historicoTurno')) localStorage.setItem('historicoTurno', "[]");
         
-        // Inicializa o histórico do turno no localStorage (não perde com F5)
-        if(!localStorage.getItem('historicoTurno')) {
-             localStorage.setItem('historicoTurno', "[]");
-        }
+        // Avisa a aba do gerente
+        if(navigator.onLine) set(ref(db, 'lanches/status_operador'), { nome: nome, online: true, fundo: dbLocal.fundoAtivo });
         
         document.getElementById('screen-open').style.display = 'none';
         document.getElementById('screen-pdv').classList.add('active');
         document.getElementById('info-topo').innerHTML = `${nome.toUpperCase()} | FUNDO: R$ ${dbLocal.fundoAtivo.toFixed(2)}`;
     };
 
-    // ITEM ENTRA DIRETO NO CARRINHO
-    window.addItem = (nome, preco) => {
-        carrinho.push({nome, preco: parseFloat(preco)});
-        renderCarrinho();
-    };
-
+    window.addItem = (nome, preco) => { carrinho.push({nome, preco: parseFloat(preco)}); renderCarrinho(); };
     window.limparCarrinho = () => { carrinho = []; renderCarrinho(); };
     window.removerItem = (idx) => { carrinho.splice(idx, 1); renderCarrinho(); };
 
@@ -253,14 +245,11 @@
         let total = 0;
         list.innerHTML = carrinho.map((i, idx) => {
             total += i.preco;
-            return `<div class="cart-item" onclick="window.removerItem(${idx})">
-                        <div class="cart-item-main"><span>${i.nome}</span><b>R$ ${i.preco.toFixed(2)}</b></div>
-                    </div>`;
+            return `<div class="cart-item" onclick="window.removerItem(${idx})"><div class="cart-item-main"><span>${i.nome}</span><b>R$ ${i.preco.toFixed(2)}</b></div></div>`;
         }).join('');
         document.getElementById('cart-total').innerText = `R$ ${total.toFixed(2).replace('.', ',')}`;
     }
 
-    // FINALIZAR VENDA (CORRIGIDO BUG DE MÚLTIPLOS ITENS E SALVANDO NO LOCALSTORAGE)
     window.finalizarVenda = async (metodo) => {
         if(carrinho.length === 0) return;
         
@@ -277,156 +266,92 @@
             observacao: obsVenda || "---"
         };
 
-        // Salva na memória PERSISTENTE do turno para gerar o PDF depois (resiste a F5)
+        // Salva na memória do PDF
         let historico = JSON.parse(localStorage.getItem('historicoTurno') || "[]");
         historico.push(venda);
         localStorage.setItem('historicoTurno', JSON.stringify(historico));
 
-        // Conta quantos itens iguais existem no carrinho (ex: 2 Cafés P)
-        let resumoItensVendidos = {};
-        carrinho.forEach(item => {
-            resumoItensVendidos[item.nome] = (resumoItensVendidos[item.nome] || 0) + 1;
-        });
+        // Resumo de quantos itens iguais tem
+        let resumoItens = {};
+        carrinho.forEach(i => resumoItens[i.nome] = (resumoItens[i.nome] || 0) + 1);
 
         if (navigator.onLine) {
             try {
-                // 1. Manda a venda inteira pro histórico do Gerente
                 push(ref(db, 'lanches/vendas'), venda);
-                
-                // 2. Atualiza a tabela do Gerente (Estoque_Manual)
-                const estoqueRef = ref(db, 'lanches/estoque_manual');
-                const snapshot = await get(estoqueRef);
-                const estoqueAtual = snapshot.val() || {};
+                const estRef = ref(db, 'lanches/estoque_manual');
+                const snap = await get(estRef);
+                const estAt = snap.val() || {};
 
-                // Para cada tipo de produto vendido, soma a quantidade correta
-                Object.keys(resumoItensVendidos).forEach(nomeProd => {
-                    const qtdVendidaDesteItem = resumoItensVendidos[nomeProd];
-                    const infoAntiga = estoqueAtual[nomeProd] || { entrada: 0, vendido: 0, saida: 0 };
-                    
-                    let nVend = infoAntiga.vendido;
-                    let nSai = infoAntiga.saida;
-
-                    if (metodo === 'Consumo') {
-                        nSai += qtdVendidaDesteItem; // Consumo vai para Saída
-                    } else {
-                        nVend += qtdVendidaDesteItem; // O resto vai para Vendido
-                    }
-
-                    set(ref(db, `lanches/estoque_manual/${nomeProd}`), { ...infoAntiga, vendido: nVend, saida: nSai });
+                Object.keys(resumoItens).forEach(nProd => {
+                    const q = resumoItens[nProd];
+                    const info = estAt[nProd] || { entrada:0, vendido:0, saida:0 };
+                    if (metodo === 'Consumo') info.saida += q; else info.vendido += q;
+                    set(ref(db, `lanches/estoque_manual/${nProd}`), info);
                 });
-            } catch (e) {
-                salvarOffline(venda, resumoItensVendidos);
-            }
+            } catch(e) { salvarOffline(venda, resumoItens); }
         } else {
-            salvarOffline(venda, resumoItensVendidos);
+            salvarOffline(venda, resumoItens);
         }
 
         window.limparCarrinho();
-        alert(`VENDA FINALIZADA NO ${metodo.toUpperCase()}!`);
+        alert(`VENDA NO ${metodo.toUpperCase()} FEITA!`);
     };
 
-    function salvarOffline(venda, resumoItens) {
-        // Guarda a venda e também o resumo de quantas unidades para facilitar a sincronização depois
-        vendasOffline.push({venda: venda, resumoItens: resumoItens});
+    function salvarOffline(venda, resumo) {
+        vendasOffline.push({venda: venda, resumo: resumo});
         localStorage.setItem('vendasPendentes', JSON.stringify(vendasOffline));
     }
 
     async function sincronizarVendasOffline() {
         if(vendasOffline.length > 0) {
-            const estoqueRef = ref(db, 'lanches/estoque_manual');
-            const snapshot = await get(estoqueRef);
-            let estoqueAtual = snapshot.val() || {};
+            const estRef = ref(db, 'lanches/estoque_manual');
+            const snap = await get(estRef);
+            let estAt = snap.val() || {};
 
             for (let obj of vendasOffline) {
                 push(ref(db, 'lanches/vendas'), obj.venda);
-                
-                Object.keys(obj.resumoItens).forEach(nomeProd => {
-                    const qtd = obj.resumoItens[nomeProd];
-                    if(!estoqueAtual[nomeProd]) estoqueAtual[nomeProd] = { entrada: 0, vendido: 0, saida: 0 };
-                    
-                    if (obj.venda.metodo === 'Consumo') {
-                        estoqueAtual[nomeProd].saida += qtd;
-                    } else {
-                        estoqueAtual[nomeProd].vendido += qtd;
-                    }
-                    set(ref(db, `lanches/estoque_manual/${nomeProd}`), estoqueAtual[nomeProd]);
+                Object.keys(obj.resumo).forEach(nProd => {
+                    const q = obj.resumo[nProd];
+                    if(!estAt[nProd]) estAt[nProd] = {entrada:0, vendido:0, saida:0};
+                    if (obj.venda.metodo === 'Consumo') estAt[nProd].saida += q; else estAt[nProd].vendido += q;
+                    set(ref(db, `lanches/estoque_manual/${nProd}`), estAt[nProd]);
                 });
             }
-            vendasOffline = [];
-            localStorage.setItem('vendasPendentes', "[]");
-            alert("Sincronização offline concluída com o Gerente!");
+            vendasOffline = []; localStorage.setItem('vendasPendentes', "[]");
+            alert("SINCRONIZADO COM O GERENTE!");
         }
     }
 
-    // LANÇAR DESPESAS COM SALVAMENTO NO LOCALSTORAGE (Para o PDF)
     window.lancarDespesaRapida = async () => {
-        const tipo = prompt("TIPO DE DESPESA: \n1 - Tirar DINHEIRO \n2 - Tirar PRODUTO (Estoque)");
+        const tipo = prompt("1-DINHEIRO DO CAIXA | 2-PRODUTO (Estoque)");
         if(tipo === "1") {
-            const valor = parseFloat(prompt("VALOR (R$):"));
-            const motivo = prompt("MOTIVO:");
-            if(valor && motivo) {
-                const despesa = {
-                    tipo_registro: "Despesa (Dinheiro)",
-                    horario: new Date().toLocaleTimeString('pt-BR'),
-                    operador: dbLocal.funcionarioAtivo,
-                    total: valor,
-                    motivo: motivo
-                };
-                
-                // Salva no histórico persistente do turno
-                let historico = JSON.parse(localStorage.getItem('historicoTurno') || "[]");
-                historico.push(despesa);
-                localStorage.setItem('historicoTurno', JSON.stringify(historico));
-
-                if(navigator.onLine) {
-                    push(ref(db, 'lanches/despesas'), despesa);
-                } else {
-                     alert("Sem internet, despesa registrada localmente e constará no PDF.");
-                }
-                alert("Despesa em dinheiro registrada!");
+            const val = parseFloat(prompt("VALOR (R$):"));
+            const mot = prompt("MOTIVO:");
+            if(val && mot) {
+                const desp = { tipo_registro: "Despesa (Dinheiro)", horario: new Date().toLocaleTimeString('pt-BR'), operador: dbLocal.funcionarioAtivo, total: val, motivo: mot };
+                let hist = JSON.parse(localStorage.getItem('historicoTurno') || "[]");
+                hist.push(desp); localStorage.setItem('historicoTurno', JSON.stringify(hist));
+                if(navigator.onLine) push(ref(db, 'lanches/despesas'), desp);
+                alert("DESPESA LANÇADA!");
             }
-        } else if(tipo === "2") {
-            const prod = prompt("NOME DO PRODUTO (Igual ao sistema):");
-            const motivo = prompt("MOTIVO DA SAÍDA:");
-            const qtd = parseInt(prompt("QUANTIDADE:", "1"));
-            
-            if(prod && motivo && !isNaN(qtd)) {
-                 const despesaProd = {
-                    tipo_registro: "Despesa (Produto)",
-                    horario: new Date().toLocaleTimeString('pt-BR'),
-                    operador: dbLocal.funcionarioAtivo,
-                    nomeProd: prod,
-                    qtd: qtd,
-                    motivo: motivo
-                };
-                
-                // Salva no histórico persistente do turno
-                let historico = JSON.parse(localStorage.getItem('historicoTurno') || "[]");
-                historico.push(despesaProd);
-                localStorage.setItem('historicoTurno', JSON.stringify(historico));
-
-                if(navigator.onLine) {
-                    const prodRef = ref(db, `lanches/estoque_manual/${prod}`);
-                    const snap = await get(prodRef);
-                    const info = snap.val() || { entrada: 0, vendido: 0, saida: 0 };
-                    
-                    set(prodRef, {
-                        ...info,
-                        saida: info.saida + qtd
-                    });
-                     // Lança também no histórico de vendas do gerente para ficar registrado
-                    push(ref(db, 'lanches/vendas'), { 
-                        operador: dbLocal.funcionarioAtivo, 
-                        itens: [{nome: prod, preco: 0}], 
-                        total: 0, 
-                        metodo: "Despesa/Perda", 
-                        observacao: motivo + " (Qtd: " + qtd + ")"
-                    });
-                } else {
-                    alert("Sem internet, despesa registrada localmente e constará no PDF.");
-                }
-                alert("SAÍDA DE PRODUTO REGISTRADA!");
-            }
+        } else if (tipo === "2") {
+             const prod = prompt("NOME DO PRODUTO (Igual a tela):");
+             const mot = prompt("MOTIVO DA SAÍDA:");
+             const q = parseInt(prompt("QUANTIDADE:", "1"));
+             if(prod && mot && !isNaN(q)) {
+                 const despProd = { tipo_registro: "Despesa (Produto)", horario: new Date().toLocaleTimeString('pt-BR'), operador: dbLocal.funcionarioAtivo, nomeProd: prod, qtd: q, motivo: mot };
+                 let hist = JSON.parse(localStorage.getItem('historicoTurno') || "[]");
+                 hist.push(despProd); localStorage.setItem('historicoTurno', JSON.stringify(hist));
+                 
+                 if(navigator.onLine) {
+                     const pRef = ref(db, `lanches/estoque_manual/${prod}`);
+                     const snap = await get(pRef);
+                     const inf = snap.val() || {entrada:0, vendido:0, saida:0};
+                     set(pRef, {...inf, saida: inf.saida + q});
+                     push(ref(db, 'lanches/vendas'), { operador: dbLocal.funcionarioAtivo, itens: [{nome: prod, preco: 0}], total: 0, metodo: "Despesa/Perda", observacao: mot + ` (Qtd: ${q})`});
+                 }
+                 alert("SAÍDA DE ESTOQUE LANÇADA!");
+             }
         }
     };
 
@@ -437,17 +362,11 @@
         btn.classList.add('active');
     };
 
-    // TROCAR TURNO COM OPÇÃO DE PDF E ENCERRAMENTO REAL
     window.trocarTurno = () => {
-        if(confirm("Deseja fechar o caixa e baixar o relatório completo de vendas e despesas do turno?")) {
+        if(confirm("Fechar caixa e gerar o relatório do turno?")) {
             gerarRelatorioTurno();
-            
-            // Limpa a sessão para o próximo operador ter que se identificar
-            localStorage.removeItem('operadorLogado');
-            localStorage.removeItem('fundoOperador');
-            localStorage.removeItem('historicoTurno');
-            localStorage.removeItem('admLogado'); // Pede senha do ADM de novo por segurança
-            
+            if(navigator.onLine) remove(ref(db, 'lanches/status_operador'));
+            localStorage.clear(); // Limpa tudo
             location.reload();
         }
     };
@@ -455,81 +374,44 @@
     function gerarRelatorioTurno() {
         const { jsPDF } = window.jspdf;
         const doc = new jsPDF();
+        const f = parseFloat(localStorage.getItem('fundoOperador') || 0);
+        let hist = JSON.parse(localStorage.getItem('historicoTurno') || "[]");
         
-        const fundo = parseFloat(localStorage.getItem('fundoOperador') || 0);
-        let historico = JSON.parse(localStorage.getItem('historicoTurno') || "[]");
-        
-        doc.setFontSize(16);
-        doc.text("Lanches do Professor - Fechamento de Caixa", 10, 15);
-        doc.setFontSize(10);
-        doc.text(`Operador: ${dbLocal.funcionarioAtivo.toUpperCase()} | Data: ${new Date().toLocaleDateString()}`, 10, 22);
-        doc.text(`Fundo Inicial na Gaveta: R$ ${fundo.toFixed(2)}`, 10, 28);
+        doc.setFontSize(16); doc.text("FECHAMENTO DE CAIXA - Lanches do Professor", 10, 15);
+        doc.setFontSize(10); doc.text(`Operador: ${dbLocal.funcionarioAtivo.toUpperCase()} | Data: ${new Date().toLocaleDateString()}`, 10, 22);
+        doc.text(`Fundo Recebido: R$ ${f.toFixed(2)}`, 10, 28);
 
-        if(historico.length === 0) {
-            doc.text("Nenhuma movimentação registrada.", 10, 40);
-            doc.save(`Caixa_${dbLocal.funcionarioAtivo}.pdf`);
-            return;
-        }
+        if(hist.length === 0) { doc.text("Nenhuma venda.", 10, 40); doc.save(`Caixa.pdf`); return; }
 
-        let totDinheiro = 0, totCartao = 0, totFiado = 0, totConsumo = 0, totDespesas = 0;
+        let tD=0, tC=0, tF=0, tCo=0, tDes=0;
         const rows = [];
-
-        historico.forEach(reg => {
-            if(reg.tipo_registro === "Venda") {
-                // Junta itens iguais (ex: "2x Café P") para o PDF ficar menor
-                let resumoItems = {};
-                reg.itens.forEach(i => resumoItems[i.nome] = (resumoItems[i.nome] || 0) + 1);
-                let detalhes = Object.entries(resumoItems).map(([n, q]) => `${q}x ${n}`).join(', ');
-                
-                rows.push([reg.horario, "Venda", detalhes, reg.metodo, `R$ ${reg.total.toFixed(2)}`]);
-                
-                if(reg.metodo === 'Dinheiro') totDinheiro += reg.total;
-                if(reg.metodo === 'Cartão') totCartao += reg.total;
-                if(reg.metodo === 'Fiado') totFiado += reg.total;
-                if(reg.metodo === 'Consumo') totConsumo += reg.total;
-                
-            } else if (reg.tipo_registro === "Despesa (Dinheiro)") {
-                rows.push([reg.horario, "Despesa ($)", reg.motivo, "Dinheiro", `- R$ ${reg.total.toFixed(2)}`]);
-                totDespesas += reg.total;
-            } else if (reg.tipo_registro === "Despesa (Produto)") {
-                 rows.push([reg.horario, "Saída (Estoque)", `${reg.qtd}x ${reg.nomeProd} - Motivo: ${reg.motivo}`, "---", `---`]);
+        hist.forEach(r => {
+            if(r.tipo_registro === "Venda") {
+                let rI={}; r.itens.forEach(i=>rI[i.nome]=(rI[i.nome]||0)+1);
+                let det = Object.entries(rI).map(([n,q])=>`${q}x ${n}`).join(', ');
+                rows.push([r.horario, "Venda", det, r.metodo, `R$ ${r.total.toFixed(2)}`]);
+                if(r.metodo==='Dinheiro') tD+=r.total; if(r.metodo==='Cartão') tC+=r.total;
+                if(r.metodo==='Fiado') tF+=r.total; if(r.metodo==='Consumo') tCo+=r.total;
+            } else if (r.tipo_registro === "Despesa (Dinheiro)") {
+                rows.push([r.horario, "Despesa ($)", r.motivo, "Dinheiro", `- R$ ${r.total.toFixed(2)}`]); tDes+=r.total;
+            } else if (r.tipo_registro === "Despesa (Produto)") {
+                rows.push([r.horario, "Saída (Est)", `${r.qtd}x ${r.nomeProd} (${r.motivo})`, "-", "-"]);
             }
         });
 
-        doc.autoTable({
-            startY: 35,
-            head: [['Hora', 'Tipo', 'Detalhes/Itens', 'Método', 'Valor']],
-            body: rows,
-            styles: { fontSize: 8 },
-            headStyles: { fillColor: [26, 37, 47] }
-        });
+        doc.autoTable({ startY: 35, head: [['Hora', 'Tipo', 'Detalhes', 'Método', 'Valor']], body: rows, styles: {fontSize: 8} });
+        let py = doc.lastAutoTable.finalY + 10;
+        if(py>250){doc.addPage(); py=20;}
 
-        let posY = doc.lastAutoTable.finalY + 10;
-        
-        // Verifica se a tabela não estourou o limite da página, se sim, cria nova página
-        if(posY > 250) {
-            doc.addPage();
-            posY = 20;
-        }
-
-        doc.setFontSize(11);
-        doc.text("RESUMO FINANCEIRO DO TURNO:", 10, posY);
+        doc.setFontSize(11); doc.text("RESUMO FINANCEIRO:", 10, py);
         doc.setFontSize(9);
-        doc.text(`(+) Entrou em Dinheiro: R$ ${totDinheiro.toFixed(2)}`, 10, posY + 6);
-        doc.text(`(+) Entrou em Cartão: R$ ${totCartao.toFixed(2)}`, 10, posY + 11);
-        doc.text(`(=) Subtotal Vendas: R$ ${(totDinheiro + totCartao).toFixed(2)}`, 10, posY + 16);
-        
-        doc.text(`(-) Despesas Tiradas do Caixa: R$ ${totDespesas.toFixed(2)}`, 10, posY + 26);
-        
-        doc.setFontSize(11);
-        doc.text(`DEVE TER NA GAVETA (Fundo + Dinheiro - Despesas): R$ ${(fundo + totDinheiro - totDespesas).toFixed(2)}`, 10, posY + 35);
-        
-        doc.setFontSize(9);
-        doc.text(`* Fiado pendente: R$ ${totFiado.toFixed(2)} | * Consumo interno: R$ ${totConsumo.toFixed(2)}`, 10, posY + 45);
+        doc.text(`(+) Dinheiro: R$ ${tD.toFixed(2)} | (+) Cartão: R$ ${tC.toFixed(2)}`, 10, py+6);
+        doc.text(`(-) Despesas do Caixa: R$ ${tDes.toFixed(2)}`, 10, py+12);
+        doc.setFontSize(11); doc.text(`DEVE TER NA GAVETA (Fundo + Dinheiro - Despesa): R$ ${(f+tD-tDes).toFixed(2)}`, 10, py+20);
+        doc.setFontSize(9); doc.text(`* Fiado pendente: R$ ${tF.toFixed(2)} | * Consumo interno: R$ ${tCo.toFixed(2)}`, 10, py+28);
 
         doc.save(`Fechamento_${dbLocal.funcionarioAtivo}_${new Date().toLocaleDateString()}.pdf`);
     }
-
 </script>
 </body>
 </html>
