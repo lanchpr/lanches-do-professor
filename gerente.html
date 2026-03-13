@@ -8,41 +8,42 @@
     <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf-autotable/3.5.28/jspdf.plugin.autotable.min.js"></script>
     <style>
-        :root { --manager: #8e44ad; --primary: #1a252f; --success: #27ae60; --danger: #e74c3c; --bg: #f1f2f6; }
+        :root { --manager: #8e44ad; --primary: #1a252f; --success: #27ae60; --danger: #e74c3c; --info: #3498db; --bg: #f1f2f6; }
         * { box-sizing: border-box; }
         body { height: 100dvh; margin: 0; font-family: 'Segoe UI', sans-serif; background: var(--bg); overflow: hidden; }
         
-        /* Tela de Login */
         #login-screen { position: fixed; inset: 0; background: var(--primary); z-index: 9999; display: flex; align-items: center; justify-content: center; padding: 20px; }
         .login-card { background: white; padding: 30px; border-radius: 15px; width: 100%; max-width: 350px; text-align: center; }
         
-        /* Layout Principal */
         .main-wrapper { display: none; flex-direction: column; height: 100%; padding: 10px; }
         .header-bar { display: flex; justify-content: space-between; align-items: center; background: var(--manager); color: white; padding: 12px; border-radius: 8px; margin-bottom: 10px; }
-        .stats { display: grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap: 10px; margin-bottom: 10px; }
-        .card { background: white; padding: 15px; border-radius: 8px; border-left: 5px solid var(--manager); box-shadow: 0 2px 5px rgba(0,0,0,0.05); }
-        .card small { font-size: 11px; font-weight: bold; color: #7f8c8d; text-transform: uppercase; }
-        .card div { font-size: 20px; font-weight: 900; }
         
+        .stats { display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 10px; margin-bottom: 10px; }
+        .card { background: white; padding: 12px; border-radius: 8px; border-left: 5px solid var(--manager); box-shadow: 0 2px 5px rgba(0,0,0,0.05); }
+        .card small { font-size: 10px; font-weight: bold; color: #7f8c8d; text-transform: uppercase; }
+        .card div { font-size: 18px; font-weight: 900; }
+
         .content { display: grid; grid-template-columns: 320px 1fr; gap: 10px; flex: 1; min-height: 0; }
-        @media (max-width: 800px) { .content { grid-template-columns: 1fr; } }
-        
+        @media (max-width: 850px) { .content { grid-template-columns: 1fr; } }
+
         .panel { background: white; border-radius: 8px; padding: 15px; border: 1px solid #ddd; display: flex; flex-direction: column; overflow: hidden; }
         .scroll { flex: 1; overflow-y: auto; }
         
-        label { font-size: 12px; font-weight: bold; }
-        select, input { width: 100%; padding: 10px; border: 1px solid #ddd; border-radius: 6px; margin-top: 5px; margin-bottom: 10px; }
+        label { font-size: 12px; font-weight: bold; display: block; margin-top: 10px; }
+        select, input { width: 100%; padding: 10px; border: 1px solid #ddd; border-radius: 6px; margin-top: 5px; }
         
-        .btn { width: 100%; padding: 12px; border: none; border-radius: 6px; font-weight: bold; cursor: pointer; color: white; transition: 0.2s; }
+        .btn { width: 100%; padding: 12px; border: none; border-radius: 6px; font-weight: bold; cursor: pointer; color: white; margin-top: 15px; }
         .btn-add { background: var(--success); }
-        .btn-reset { background: transparent; color: #999; border: 1px solid #eee; font-size: 10px; margin-top: 10px; }
+        .btn-reset { background: var(--danger); font-size: 11px; }
         
         table { width: 100%; border-collapse: collapse; font-size: 13px; }
-        th { background: #f8f9fa; padding: 10px; text-align: left; position: sticky; top: 0; z-index: 10; }
-        td { padding: 10px; border-bottom: 1px solid #eee; }
+        th { background: #f8f9fa; padding: 12px; text-align: left; position: sticky; top: 0; z-index: 10; border-bottom: 2px solid #ddd; }
+        td { padding: 12px; border-bottom: 1px solid #eee; }
         
-        .btn-edit { background: none; border: none; color: #3498db; cursor: pointer; font-size: 14px; }
-        .operador-item { display: flex; justify-content: space-between; padding: 8px 0; border-bottom: 1px dotted #ccc; font-size: 14px; }
+        .btn-edit { background: var(--info); border: none; color: white; padding: 5px 8px; border-radius: 4px; cursor: pointer; }
+        .badge { padding: 4px 8px; border-radius: 4px; font-weight: bold; }
+        .bg-success { background: #d4edda; color: #155724; }
+        .bg-danger { background: #f8d7da; color: #721c24; }
     </style>
 </head>
 <body>
@@ -50,52 +51,63 @@
 <div id="login-screen">
     <div class="login-card">
         <img src="https://i.postimg.cc/bYCjz5WZ/Picsart-25-11-03-11-29-40-541.png" style="width: 80px; margin-bottom: 15px;">
-        <h2 style="margin: 0 0 20px 0; color: var(--primary);">Área do Gestor</h2>
+        <h2>Gestão Central</h2>
         <input type="text" id="login-user" placeholder="Login">
         <input type="password" id="login-pass" placeholder="Senha">
-        <button class="btn btn-add" style="background: var(--manager);" onclick="verificarLogin()">ENTRAR</button>
+        <button class="btn btn-add" onclick="verificarLogin()">ENTRAR</button>
     </div>
 </div>
 
 <div class="main-wrapper" id="main-content">
     <div class="header-bar">
-        <span><i class="fa-solid fa-crown"></i> <b>GESTOR ONLINE - LANCHES DO PROFESSOR</b></span>
-        <button onclick="window.baixarRelatorio()" style="background:rgba(255,255,255,0.2); border:none; color:white; padding:5px 10px; border-radius:5px;"><i class="fa-solid fa-file-pdf"></i> PDF DIA</button>
+        <span><i class="fa-solid fa-crown"></i> <b>CONTROLE TOTAL DO PROFESSOR</b></span>
+        <div style="display:flex; gap:10px;">
+            <button onclick="window.baixarRelatorio()" style="background:rgba(255,255,255,0.2); color:white; border:none; padding:5px 10px; border-radius:5px; cursor:pointer;"><i class="fa-solid fa-file-pdf"></i> PDF</button>
+            <button onclick="window.reiniciarApp()" style="background:var(--danger); color:white; border:none; padding:5px 10px; border-radius:5px; cursor:pointer; font-weight:bold;">REINICIAR DIA</button>
+        </div>
     </div>
 
     <div class="stats">
-        <div class="card"><small>Vendido Hoje</small><div id="total-vendas">R$ 0,00</div></div>
-        <div class="card" style="border-left-color: #3498db"><small>Entradas Total</small><div id="total-entradas">0 un</div></div>
-        <div class="card" style="border-left-color: var(--danger)"><small>Operadores Ativos</small><div id="total-ops">0</div></div>
+        <div class="card"><small>Entradas</small><div id="total-ent">0</div></div>
+        <div class="card" style="border-left-color: var(--success)"><small>Vendidos</small><div id="total-vend">0</div></div>
+        <div class="card" style="border-left-color: var(--danger)"><small>Saídas</small><div id="total-sai">0</div></div>
+        <div class="card" style="border-left-color: var(--info)"><small>Saldo</small><div id="total-sal">0</div></div>
     </div>
 
     <div class="content">
         <div class="panel">
-            <h4 style="margin:0 0 10px 0">Abastecer / Editar</h4>
-            <label>Produto:</label>
+            <h4 style="margin:0"><i class="fa-solid fa-cart-plus"></i> Abastecer Loja</h4>
+            <label>Escolha o Produto:</label>
             <select id="prod-select">
                 <optgroup label="Cafés"><option>Café P</option><option>Café M</option><option>Café G</option><option>Café Extra</option><option>Café Especial</option></optgroup>
                 <optgroup label="Bebidas"><option>Coca Lata</option><option>Coquinha</option><option>Guaraná Nat.</option><option>Água Gás</option><option>Água Nat.</option><option>Rodízio Cana</option><option>Caldo Garrafa</option></optgroup>
                 <optgroup label="Alimentos"><option>Pastel Especial</option><option>Pastel Comum</option><option>Salgado</option><option>Bolo Fatia</option></optgroup>
                 <optgroup label="Outros"><option>Cigarro Var.</option><option>Cigarro G</option><option>Bala Drop</option></optgroup>
             </select>
-            <label>Quantidade:</label>
+            <label>Quantidade a ADICIONAR:</label>
             <input type="number" id="prod-qty" value="10">
-            <button class="btn btn-add" onclick="window.lancarEntrada()">ADICIONAR ENTRADA</button>
-
-            <hr style="margin: 20px 0; border: none; border-top: 1px solid #eee;">
+            <button class="btn btn-add" onclick="window.lancarRapido()">SOMAR AO ESTOQUE</button>
             
-            <h4 style="margin:0 0 10px 0">Vendas por Operador</h4>
-            <div id="lista-operadores"></div>
-            
-            <button class="btn btn-reset" onclick="window.zerarTudo()">ENCERRAR TUDO (ZERAR DIA)</button>
+            <p style="font-size:11px; color:#666; margin-top:20px; line-height:1.4;">
+                * Use este bloco para entradas rápidas.<br>
+                * Use o botão "Editar" na tabela para correções específicas de venda ou perda.
+            </p>
         </div>
 
         <div class="panel">
-            <h4 style="margin:0 0 10px 0">Auditoria e Saldo (Clique no <i class="fa-solid fa-pencil"></i> para editar)</h4>
+            <h4 style="margin:0 0 10px 0"><i class="fa-solid fa-list-check"></i> Auditoria de Lançamentos</h4>
             <div class="scroll">
                 <table>
-                    <thead><tr><th>Produto</th><th>Entrada</th><th>Vendido</th><th>Saldo</th><th>Ação</th></tr></thead>
+                    <thead>
+                        <tr>
+                            <th>Produto</th>
+                            <th>Entrada</th>
+                            <th>Vendido</th>
+                            <th>Saída</th>
+                            <th>Saldo</th>
+                            <th>Editar</th>
+                        </tr>
+                    </thead>
                     <tbody id="audit-table"></tbody>
                 </table>
             </div>
@@ -119,97 +131,88 @@
     const app = initializeApp(firebaseConfig);
     const db = getDatabase(app);
 
-    let dbLocal = { entradas: {}, vendas: [] };
+    const listaProdutos = [
+        'Café P', 'Café M', 'Café G', 'Café Extra', 'Café Especial', 
+        'Coca Lata', 'Coquinha', 'Guaraná Nat.', 'Água Gás', 'Água Nat.', 'Rodízio Cana', 'Caldo Garrafa',
+        'Pastel Especial', 'Pastel Comum', 'Salgado', 'Bolo Fatia',
+        'Cigarro Var.', 'Cigarro G', 'Bala Drop'
+    ];
 
-    // Login
+    let dadosAtuais = {};
+
     window.verificarLogin = () => {
         const u = document.getElementById('login-user').value;
         const p = document.getElementById('login-pass').value;
         if(u === "ADM" && p === "bla19841984") {
             document.getElementById('login-screen').style.display = 'none';
             document.getElementById('main-content').style.display = 'flex';
-        } else {
-            alert("Login ou Senha incorretos!");
-        }
+        } else { alert("Login ou senha incorretos!"); }
     };
 
-    onValue(ref(db, 'lanches/'), (snapshot) => {
-        const data = snapshot.val();
-        if(data) {
-            dbLocal.entradas = data.entradas || {};
-            dbLocal.vendas = data.vendas ? Object.values(data.vendas) : [];
-            sincronizarUI();
-        } else {
-            document.getElementById('audit-table').innerHTML = "";
-            document.getElementById('total-vendas').innerText = "R$ 0,00";
-        }
+    onValue(ref(db, 'lanches/estoque_manual'), (snapshot) => {
+        dadosAtuais = snapshot.val() || {};
+        renderizarTabela(dadosAtuais);
     });
 
-    window.lancarEntrada = () => {
-        const p = document.getElementById('prod-select').value;
-        const q = parseInt(document.getElementById('prod-qty').value);
-        if(isNaN(q)) return;
-        const novaQtd = (dbLocal.entradas[p] || 0) + q;
-        set(ref(db, 'lanches/entradas/' + p), novaQtd);
-        alert("Entrada lançada!");
-    };
-
-    window.editarEntradaManual = (produto) => {
-        const atual = dbLocal.entradas[produto] || 0;
-        const nova = prompt(`Editar total de ENTRADA para ${produto}:\n(Valor atual: ${atual})`, atual);
-        if (nova !== null) {
-            set(ref(db, 'lanches/entradas/' + produto), parseInt(nova));
-        }
-    };
-
-    function sincronizarUI() {
+    function renderizarTabela(data) {
         const tbody = document.getElementById('audit-table');
-        const listaOps = document.getElementById('lista-operadores');
         tbody.innerHTML = "";
-        listaOps.innerHTML = "";
-        
-        let totalR$ = 0, resumoVendas = {}, resumoOperadores = {}, entTotal = 0;
+        let tEnt = 0, tVend = 0, tSai = 0, tSal = 0;
 
-        dbLocal.vendas.forEach(v => {
-            totalR$ += v.total;
-            resumoOperadores[v.operador] = (resumoOperadores[v.operador] || 0) + v.total;
-            v.itens.forEach(i => resumoVendas[i.nome] = (resumoVendas[i.nome] || 0) + 1);
-        });
-
-        // Tabela de Auditoria
-        const prods = new Set([...Object.keys(dbLocal.entradas), ...Object.keys(resumoVendas)]);
-        Array.from(prods).sort().forEach(nome => {
-            const ent = dbLocal.entradas[nome] || 0;
-            const vend = resumoVendas[nome] || 0;
-            const saldo = ent - vend;
-            entTotal += ent;
+        listaProdutos.forEach(prod => {
+            const info = data[prod] || { entrada: 0, vendido: 0, saida: 0 };
+            const saldo = info.entrada - info.vendido - info.saida;
+            tEnt += info.entrada; tVend += info.vendido; tSai += info.saida; tSal += saldo;
 
             tbody.innerHTML += `
                 <tr>
-                    <td><b>${nome}</b></td>
-                    <td>${ent}</td>
-                    <td>${vend}</td>
-                    <td style="color:${saldo < 0 ? 'red' : 'inherit'}">${saldo}</td>
-                    <td><button class="btn-edit" onclick="window.editarEntradaManual('${nome}')"><i class="fa-solid fa-pencil"></i></button></td>
+                    <td><b>${prod}</b></td>
+                    <td>${info.entrada}</td>
+                    <td>${info.vendido}</td>
+                    <td>${info.saida}</td>
+                    <td><span class="badge ${saldo < 0 ? 'bg-danger' : 'bg-success'}">${saldo}</span></td>
+                    <td><button class="btn-edit" onclick="window.abrirModalEdicao('${prod}', ${info.entrada}, ${info.vendido}, ${info.saida})"><i class="fa-solid fa-pencil"></i></button></td>
                 </tr>`;
         });
 
-        // Lista por Operador
-        Object.keys(resumoOperadores).forEach(op => {
-            listaOps.innerHTML += `
-                <div class="operador-item">
-                    <span>${op.toUpperCase()}</span>
-                    <b>R$ ${resumoOperadores[op].toFixed(2)}</b>
-                </div>`;
-        });
-
-        document.getElementById('total-vendas').innerText = `R$ ${totalR$.toFixed(2).replace('.', ',')}`;
-        document.getElementById('total-entradas').innerText = entTotal + " un";
-        document.getElementById('total-ops').innerText = Object.keys(resumoOperadores).length;
+        document.getElementById('total-ent').innerText = tEnt;
+        document.getElementById('total-vend').innerText = tVend;
+        document.getElementById('total-sai').innerText = tSai;
+        document.getElementById('total-sal').innerText = tSal;
     }
 
-    window.zerarTudo = () => {
-        if(confirm("Zerar tudo apagará as vendas e o estoque na nuvem. Confirma?")) {
+    // FUNÇÃO DO BLOCO DE LANÇAMENTO (ADICIONAR)
+    window.lancarRapido = () => {
+        const p = document.getElementById('prod-select').value;
+        const q = parseInt(document.getElementById('prod-qty').value);
+        if(isNaN(q)) return;
+
+        const infoAntiga = dadosAtuais[p] || { entrada: 0, vendido: 0, saida: 0 };
+        set(ref(db, 'lanches/estoque_manual/' + p), {
+            ...infoAntiga,
+            entrada: infoAntiga.entrada + q
+        });
+        alert(`+${q} adicionados ao estoque de ${p}`);
+    };
+
+    // FUNÇÃO DA TABELA (EDITAR VALOR ESPECÍFICO)
+    window.abrirModalEdicao = (nome, ent, vend, sai) => {
+        const nEnt = prompt(`[${nome}] - Mudar TOTAL ENTRADA para:`, ent);
+        if (nEnt === null) return;
+        const nVend = prompt(`[${nome}] - Mudar TOTAL VENDIDO para:`, vend);
+        if (nVend === null) return;
+        const nSai = prompt(`[${nome}] - Mudar TOTAL SAÍDA para:`, sai);
+        if (nSai === null) return;
+
+        set(ref(db, 'lanches/estoque_manual/' + nome), {
+            entrada: parseInt(nEnt) || 0,
+            vendido: parseInt(nVend) || 0,
+            saida: parseInt(nSai) || 0
+        });
+    };
+
+    window.reiniciarApp = () => {
+        if(confirm("LIMPAR TUDO? Isso apaga todas as vendas e estoques do dia!")) {
             remove(ref(db, 'lanches/'));
         }
     };
@@ -217,14 +220,12 @@
     window.baixarRelatorio = () => {
         const { jsPDF } = window.jspdf;
         const doc = new jsPDF();
-        doc.text("Relatorio Gerencial Lanches do Professor", 14, 15);
-        const rows = [];
-        const table = document.getElementById('audit-table');
-        for (let row of table.rows) {
-            rows.push([row.cells[0].innerText, row.cells[1].innerText, row.cells[2].innerText, row.cells[3].innerText]);
-        }
-        doc.autoTable({ startY: 25, head: [['Prod', 'Ent', 'Vend', 'Saldo']], body: rows });
-        doc.save("Fechamento_Online.pdf");
+        doc.text("Auditoria Global - Lanches do Professor", 14, 15);
+        const rows = Array.from(document.querySelectorAll("#audit-table tr")).map(tr => 
+            Array.from(tr.cells).slice(0, 5).map(td => td.innerText)
+        );
+        doc.autoTable({ startY: 25, head: [['Produto', 'Entrada', 'Vendido', 'Saída', 'Saldo']], body: rows });
+        doc.save("Relatorio_Professor.pdf");
     };
 </script>
 </body>
