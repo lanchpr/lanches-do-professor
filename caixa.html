@@ -42,6 +42,7 @@
         .cart-list { flex: 1; overflow-y: auto; margin-bottom: 10px; border-bottom: 2px solid #eee; }
         .cart-item { display: flex; flex-direction: column; padding: 12px 0; border-bottom: 1px solid #f0f0f0; cursor: pointer; }
         .cart-item-main { display: flex; justify-content: space-between; align-items: center; font-size: 20px; font-weight: 800; }
+        .cart-item-obs { font-size: 14px; color: #e67e22; font-style: italic; margin-top: 5px; }
         
         .total-box { padding: 15px 0; text-align: right; flex-shrink: 0; }
         .total-val { font-size: 70px; font-weight: 900; color: var(--primary); line-height: 1; letter-spacing: -2px; }
@@ -185,10 +186,32 @@
         statusEl.className = 'net-off'; statusEl.innerText = 'OFFLINE';
     });
 
+    // VERIFICAR SESSÃO ATIVA AO CARREGAR A PÁGINA
+    window.onload = () => {
+        const sessaoAtiva = localStorage.getItem('operadorLogado');
+        const fundoAtivo = localStorage.getItem('fundoOperador');
+        const admLogado = localStorage.getItem('admLogado');
+
+        if (sessaoAtiva && fundoAtivo) {
+            // Se já tem operador logado (página atualizada ou net caiu), pula as telas de login
+            dbLocal.funcionarioAtivo = sessaoAtiva;
+            dbLocal.fundoAtivo = parseFloat(fundoAtivo);
+            document.getElementById('screen-adm').style.display = 'none';
+            document.getElementById('screen-open').style.display = 'none';
+            document.getElementById('screen-pdv').classList.add('active');
+            document.getElementById('info-topo').innerHTML = `${sessaoAtiva.toUpperCase()} | FUNDO: R$ ${dbLocal.fundoAtivo.toFixed(2)}`;
+        } else if (admLogado === 'true') {
+            // Se o ADM liberou, mas o operador ainda não abriu turno
+            document.getElementById('screen-adm').style.display = 'none';
+            document.getElementById('screen-open').style.display = 'flex';
+        }
+    };
+
     window.verificarAdm = () => {
         const u = document.getElementById('adm-user').value;
         const p = document.getElementById('adm-pass').value;
         if(u === "ADM" && p === "bla19841984") {
+            localStorage.setItem('admLogado', 'true');
             document.getElementById('screen-adm').style.display = 'none';
             document.getElementById('screen-open').style.display = 'flex';
         } else { alert("ACESSO NEGADO!"); }
@@ -202,15 +225,21 @@
         dbLocal.funcionarioAtivo = nome;
         dbLocal.fundoAtivo = isNaN(fundo) ? 0 : fundo;
         
-        // Limpa o histórico da sessão anterior para gerar um relatório novo
-        sessionStorage.setItem('historicoSessao', "[]");
-        sessionStorage.setItem('fundoSessao', dbLocal.fundoAtivo);
+        // Salva a sessão no localStorage para resistir a refresh (F5) e quedas de energia/net
+        localStorage.setItem('operadorLogado', dbLocal.funcionarioAtivo);
+        localStorage.setItem('fundoOperador', dbLocal.fundoAtivo);
+        
+        // Inicializa o histórico do turno no localStorage (não perde com F5)
+        if(!localStorage.getItem('historicoTurno')) {
+             localStorage.setItem('historicoTurno', "[]");
+        }
         
         document.getElementById('screen-open').style.display = 'none';
         document.getElementById('screen-pdv').classList.add('active');
         document.getElementById('info-topo').innerHTML = `${nome.toUpperCase()} | FUNDO: R$ ${dbLocal.fundoAtivo.toFixed(2)}`;
     };
 
+    // ITEM ENTRA DIRETO NO CARRINHO
     window.addItem = (nome, preco) => {
         carrinho.push({nome, preco: parseFloat(preco)});
         renderCarrinho();
@@ -231,7 +260,7 @@
         document.getElementById('cart-total').innerText = `R$ ${total.toFixed(2).replace('.', ',')}`;
     }
 
-    // FINALIZAR VENDA (CORRIGIDO BUG DE MÚLTIPLOS ITENS)
+    // FINALIZAR VENDA (CORRIGIDO BUG DE MÚLTIPLOS ITENS E SALVANDO NO LOCALSTORAGE)
     window.finalizarVenda = async (metodo) => {
         if(carrinho.length === 0) return;
         
@@ -242,16 +271,16 @@
             tipo_registro: "Venda",
             horario: new Date().toLocaleTimeString('pt-BR'),
             operador: dbLocal.funcionarioAtivo,
-            itens: [...carrinho], // Clona o carrinho para não perder os dados
+            itens: [...carrinho], 
             total: total,
             metodo: metodo,
             observacao: obsVenda || "---"
         };
 
-        // Salva na memória do turno para gerar o PDF depois
-        let historico = JSON.parse(sessionStorage.getItem('historicoSessao') || "[]");
+        // Salva na memória PERSISTENTE do turno para gerar o PDF depois (resiste a F5)
+        let historico = JSON.parse(localStorage.getItem('historicoTurno') || "[]");
         historico.push(venda);
-        sessionStorage.setItem('historicoSessao', JSON.stringify(historico));
+        localStorage.setItem('historicoTurno', JSON.stringify(historico));
 
         // Conta quantos itens iguais existem no carrinho (ex: 2 Cafés P)
         let resumoItensVendidos = {};
@@ -329,8 +358,8 @@
         }
     }
 
-    // LANÇAR DESPESAS
-    window.lancarDespesaRapida = () => {
+    // LANÇAR DESPESAS COM SALVAMENTO NO LOCALSTORAGE (Para o PDF)
+    window.lancarDespesaRapida = async () => {
         const tipo = prompt("TIPO DE DESPESA: \n1 - Tirar DINHEIRO \n2 - Tirar PRODUTO (Estoque)");
         if(tipo === "1") {
             const valor = parseFloat(prompt("VALOR (R$):"));
@@ -344,15 +373,59 @@
                     motivo: motivo
                 };
                 
-                // Salva no histórico da sessão
-                let historico = JSON.parse(sessionStorage.getItem('historicoSessao') || "[]");
+                // Salva no histórico persistente do turno
+                let historico = JSON.parse(localStorage.getItem('historicoTurno') || "[]");
                 historico.push(despesa);
-                sessionStorage.setItem('historicoSessao', JSON.stringify(historico));
+                localStorage.setItem('historicoTurno', JSON.stringify(historico));
 
                 if(navigator.onLine) {
                     push(ref(db, 'lanches/despesas'), despesa);
+                } else {
+                     alert("Sem internet, despesa registrada localmente e constará no PDF.");
                 }
                 alert("Despesa em dinheiro registrada!");
+            }
+        } else if(tipo === "2") {
+            const prod = prompt("NOME DO PRODUTO (Igual ao sistema):");
+            const motivo = prompt("MOTIVO DA SAÍDA:");
+            const qtd = parseInt(prompt("QUANTIDADE:", "1"));
+            
+            if(prod && motivo && !isNaN(qtd)) {
+                 const despesaProd = {
+                    tipo_registro: "Despesa (Produto)",
+                    horario: new Date().toLocaleTimeString('pt-BR'),
+                    operador: dbLocal.funcionarioAtivo,
+                    nomeProd: prod,
+                    qtd: qtd,
+                    motivo: motivo
+                };
+                
+                // Salva no histórico persistente do turno
+                let historico = JSON.parse(localStorage.getItem('historicoTurno') || "[]");
+                historico.push(despesaProd);
+                localStorage.setItem('historicoTurno', JSON.stringify(historico));
+
+                if(navigator.onLine) {
+                    const prodRef = ref(db, `lanches/estoque_manual/${prod}`);
+                    const snap = await get(prodRef);
+                    const info = snap.val() || { entrada: 0, vendido: 0, saida: 0 };
+                    
+                    set(prodRef, {
+                        ...info,
+                        saida: info.saida + qtd
+                    });
+                     // Lança também no histórico de vendas do gerente para ficar registrado
+                    push(ref(db, 'lanches/vendas'), { 
+                        operador: dbLocal.funcionarioAtivo, 
+                        itens: [{nome: prod, preco: 0}], 
+                        total: 0, 
+                        metodo: "Despesa/Perda", 
+                        observacao: motivo + " (Qtd: " + qtd + ")"
+                    });
+                } else {
+                    alert("Sem internet, despesa registrada localmente e constará no PDF.");
+                }
+                alert("SAÍDA DE PRODUTO REGISTRADA!");
             }
         }
     };
@@ -364,20 +437,27 @@
         btn.classList.add('active');
     };
 
-    // FUNÇÃO DO RELATÓRIO DO TURNO (BEM DETALHADO)
+    // TROCAR TURNO COM OPÇÃO DE PDF E ENCERRAMENTO REAL
     window.trocarTurno = () => {
-        if(confirm("Deseja baixar o relatório completo do seu turno antes de fechar o caixa?")) {
+        if(confirm("Deseja fechar o caixa e baixar o relatório completo de vendas e despesas do turno?")) {
             gerarRelatorioTurno();
+            
+            // Limpa a sessão para o próximo operador ter que se identificar
+            localStorage.removeItem('operadorLogado');
+            localStorage.removeItem('fundoOperador');
+            localStorage.removeItem('historicoTurno');
+            localStorage.removeItem('admLogado'); // Pede senha do ADM de novo por segurança
+            
+            location.reload();
         }
-        location.reload();
     };
 
     function gerarRelatorioTurno() {
         const { jsPDF } = window.jspdf;
         const doc = new jsPDF();
         
-        const fundo = parseFloat(sessionStorage.getItem('fundoSessao') || 0);
-        let historico = JSON.parse(sessionStorage.getItem('historicoSessao') || "[]");
+        const fundo = parseFloat(localStorage.getItem('fundoOperador') || 0);
+        let historico = JSON.parse(localStorage.getItem('historicoTurno') || "[]");
         
         doc.setFontSize(16);
         doc.text("Lanches do Professor - Fechamento de Caixa", 10, 15);
@@ -396,7 +476,11 @@
 
         historico.forEach(reg => {
             if(reg.tipo_registro === "Venda") {
-                let detalhes = reg.itens.map(i => i.nome).join(', ');
+                // Junta itens iguais (ex: "2x Café P") para o PDF ficar menor
+                let resumoItems = {};
+                reg.itens.forEach(i => resumoItems[i.nome] = (resumoItems[i.nome] || 0) + 1);
+                let detalhes = Object.entries(resumoItems).map(([n, q]) => `${q}x ${n}`).join(', ');
+                
                 rows.push([reg.horario, "Venda", detalhes, reg.metodo, `R$ ${reg.total.toFixed(2)}`]);
                 
                 if(reg.metodo === 'Dinheiro') totDinheiro += reg.total;
@@ -405,8 +489,10 @@
                 if(reg.metodo === 'Consumo') totConsumo += reg.total;
                 
             } else if (reg.tipo_registro === "Despesa (Dinheiro)") {
-                rows.push([reg.horario, "Despesa", reg.motivo, "Dinheiro", `- R$ ${reg.total.toFixed(2)}`]);
+                rows.push([reg.horario, "Despesa ($)", reg.motivo, "Dinheiro", `- R$ ${reg.total.toFixed(2)}`]);
                 totDespesas += reg.total;
+            } else if (reg.tipo_registro === "Despesa (Produto)") {
+                 rows.push([reg.horario, "Saída (Estoque)", `${reg.qtd}x ${reg.nomeProd} - Motivo: ${reg.motivo}`, "---", `---`]);
             }
         });
 
@@ -419,6 +505,13 @@
         });
 
         let posY = doc.lastAutoTable.finalY + 10;
+        
+        // Verifica se a tabela não estourou o limite da página, se sim, cria nova página
+        if(posY > 250) {
+            doc.addPage();
+            posY = 20;
+        }
+
         doc.setFontSize(11);
         doc.text("RESUMO FINANCEIRO DO TURNO:", 10, posY);
         doc.setFontSize(9);
