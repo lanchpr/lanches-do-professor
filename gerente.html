@@ -40,9 +40,12 @@
         td { padding: 12px; border-bottom: 1px solid #eee; }
         .btn-edit { background: var(--info); border: none; color: white; padding: 5px 8px; border-radius: 4px; cursor: pointer; }
         
-        .badge-op { padding: 8px; background: #e8f4f8; border: 1px solid #b6d4fe; border-radius: 6px; margin-top: 10px; }
-        .op-on { color: var(--success); font-weight: bold; font-size: 14px; }
-        .op-off { color: var(--danger); font-size: 12px; font-style: italic; }
+        .badge-op { padding: 12px; background: #e8f4f8; border: 1px solid #b6d4fe; border-radius: 6px; margin-top: 10px; }
+        .op-on { color: var(--success); font-weight: bold; font-size: 15px; display: flex; align-items: center; gap: 5px; }
+        .op-off { color: var(--danger); font-size: 13px; font-style: italic; }
+
+        .turno-card { padding: 10px; border: 1px solid #ddd; border-radius: 6px; margin-bottom: 10px; background: #fdfdfd; }
+        .turno-card h5 { margin: 0 0 5px 0; color: var(--primary); }
     </style>
 </head>
 <body>
@@ -61,8 +64,8 @@
     <div class="header-bar">
         <span><i class="fa-solid fa-crown"></i> <b>CONTROLE TOTAL DO PROFESSOR</b></span>
         <div style="display:flex; gap:10px;">
-            <button onclick="window.gerarRelatorioGerencial()" style="background:rgba(255,255,255,0.2); color:white; border:none; padding:5px 10px; border-radius:5px; cursor:pointer;"><i class="fa-solid fa-file-pdf"></i> PDF COMPLETO</button>
-            <button onclick="window.reiniciarApp()" style="background:var(--danger); color:white; border:none; padding:5px 10px; border-radius:5px; cursor:pointer; font-weight:bold;">Zerar Nuvem</button>
+            <button onclick="window.gerarRelatorioGerencial()" style="background:rgba(255,255,255,0.2); color:white; border:none; padding:5px 10px; border-radius:5px; cursor:pointer;"><i class="fa-solid fa-file-pdf"></i> PDF DO DIA</button>
+            <button onclick="window.reiniciarApp()" style="background:var(--danger); color:white; border:none; padding:5px 10px; border-radius:5px; cursor:pointer; font-weight:bold;">ZERAR TUDO (NOVO DIA)</button>
         </div>
     </div>
 
@@ -75,10 +78,16 @@
 
     <div class="content">
         <div class="panel">
-            <h4 style="margin:0 0 5px 0"><i class="fa-solid fa-desktop"></i> Caixa no Momento</h4>
+            <h4 style="margin:0"><i class="fa-solid fa-desktop"></i> CAIXA AGORA (ONLINE)</h4>
             <div id="status-operador" class="badge-op">
                 <div class="op-off">Nenhum operador logado agora.</div>
             </div>
+
+            <hr style="margin: 20px 0; border:none; border-top:1px solid #eee;">
+
+            <h4 style="margin:0 0 10px 0"><i class="fa-solid fa-file-invoice"></i> TURNOS ENCERRADOS</h4>
+            <div id="lista-turnos" class="scroll" style="max-height: 200px;">
+                </div>
 
             <hr style="margin: 20px 0; border:none; border-top:1px solid #eee;">
 
@@ -94,7 +103,7 @@
         </div>
 
         <div class="panel">
-            <h4 style="margin:0 0 10px 0"><i class="fa-solid fa-list-check"></i> Auditoria de Lançamentos</h4>
+            <h4 style="margin:0 0 10px 0"><i class="fa-solid fa-list-check"></i> Auditoria de Lançamentos (Dia)</h4>
             <div class="scroll">
                 <table>
                     <thead>
@@ -140,6 +149,7 @@
     let dadosAtuais = {};
     let histVendas = [];
     let histDespesas = [];
+    let turnosEncerradosGlobais = {}; // Salva os turnos para gerar o PDF
 
     window.verificarLogin = () => {
         const u = document.getElementById('login-user').value;
@@ -150,23 +160,45 @@
         } else { alert("Login ou senha incorretos!"); }
     };
 
+    // ESCUTA O BANCO DE DADOS GERAL
     onValue(ref(db, 'lanches/'), (snapshot) => {
         const dbNuvem = snapshot.val() || {};
         dadosAtuais = dbNuvem.estoque_manual || {};
         histVendas = dbNuvem.vendas ? Object.values(dbNuvem.vendas) : [];
         histDespesas = dbNuvem.despesas ? Object.values(dbNuvem.despesas) : [];
+        turnosEncerradosGlobais = dbNuvem.turnos_encerrados || {};
         
-        // Atualiza Aba Operador
+        // 1. Atualiza Aba Operador Online
         const opStatus = dbNuvem.status_operador || { online: false };
         const divOp = document.getElementById('status-operador');
         if (opStatus.online) {
-            // Calcula quanto esse operador vendeu
             let vOp = 0;
             histVendas.forEach(v => { if(v.operador === opStatus.nome) vOp += v.total; });
-            divOp.innerHTML = `<div class="op-on">● ${opStatus.nome.toUpperCase()} logado</div>
-                               <div style="font-size:12px; margin-top:3px; color:#555;">Fundo inf.: R$ ${opStatus.fundo.toFixed(2)} | Vendeu: R$ ${vOp.toFixed(2)}</div>`;
+            divOp.innerHTML = `<div class="op-on"><i class="fa-solid fa-circle-check"></i> ${opStatus.nome.toUpperCase()} logado</div>
+                               <div style="font-size:13px; margin-top:5px; color:#333;"><b>Fundo inf.:</b> R$ ${opStatus.fundo.toFixed(2)}</div>
+                               <div style="font-size:13px; color:#333;"><b>Já Vendeu:</b> R$ ${vOp.toFixed(2)}</div>`;
+            divOp.style.borderColor = "var(--success)";
         } else {
-            divOp.innerHTML = `<div class="op-off">Nenhum operador logado agora.</div>`;
+            divOp.innerHTML = `<div class="op-off"><i class="fa-solid fa-circle-xmark"></i> Nenhum operador logado agora.</div>`;
+            divOp.style.borderColor = "#b6d4fe";
+        }
+
+        // 2. Renderiza Turnos Encerrados (Listagem para baixar o PDF)
+        const divTurnos = document.getElementById('lista-turnos');
+        divTurnos.innerHTML = "";
+        if(Object.keys(turnosEncerradosGlobais).length === 0) {
+            divTurnos.innerHTML = "<span style='font-size:12px; color:#999;'>Nenhum caixa foi fechado hoje.</span>";
+        } else {
+            Object.entries(turnosEncerradosGlobais).forEach(([id, t]) => {
+                divTurnos.innerHTML += `
+                <div class="turno-card">
+                    <h5>${t.operador.toUpperCase()} <span style="font-size:10px; color:#666; font-weight:normal;">(${t.data_fechamento})</span></h5>
+                    <div style="font-size:11px; margin-bottom:5px;">Gaveta: <b>R$ ${t.deve_ter_na_gaveta.toFixed(2)}</b></div>
+                    <button class="btn-edit" style="width:100%; font-size:11px;" onclick="window.baixarRelatorioDeUmTurno('${id}')">
+                        <i class="fa-solid fa-download"></i> Baixar Relatório do Func.
+                    </button>
+                </div>`;
+            });
         }
 
         renderizarTabela();
@@ -187,7 +219,7 @@
                     <td>${info.entrada}</td>
                     <td>${info.vendido}</td>
                     <td>${info.saida}</td>
-                    <td style="color:${saldo < 0 ? 'red' : 'green'}; font-weight:bold;">${saldo}</td>
+                    <td><span class="badge ${saldo < 0 ? 'bg-danger' : 'bg-success'}">${saldo}</span></td>
                     <td><button class="btn-edit" onclick="window.abrirModalEdicao('${prod}', ${info.entrada}, ${info.vendido}, ${info.saida})"><i class="fa-solid fa-pencil"></i></button></td>
                 </tr>`;
         });
@@ -203,6 +235,9 @@
         });
 
         histDespesas.forEach(d => { if(d.tipo === 'Dinheiro') totDespesas += d.valor; });
+
+        const faturamentoBruto = totDinheiro + totCartao;
+        const saldoDinheiroLivre = totDinheiro - totDespesas; 
 
         document.getElementById('faturamento-bruto').innerText = `R$ ${(totDinheiro + totCartao).toFixed(2).replace('.', ',')}`;
         document.getElementById('total-despesas').innerText = `R$ ${totDespesas.toFixed(2).replace('.', ',')}`;
@@ -226,10 +261,54 @@
     };
 
     window.reiniciarApp = () => {
-        if(confirm("LIMPAR TUDO? Apagará vendas, despesas e estoque da nuvem!")) remove(ref(db, 'lanches/'));
+        if(confirm("LIMPAR TUDO? Apagará vendas, despesas, turnos e estoque da nuvem!")) remove(ref(db, 'lanches/'));
     };
 
-    // RELATÓRIO PDF DO GERENTE (TUDO JUNTO)
+    // --- FUNÇÃO EXCLUSIVA: GERAR O PDF DO TURNO DO FUNCIONÁRIO ---
+    window.baixarRelatorioDeUmTurno = (idTurno) => {
+        const turno = turnosEncerradosGlobais[idTurno];
+        if(!turno) return;
+
+        const { jsPDF } = window.jspdf;
+        const doc = new jsPDF();
+        
+        doc.setFontSize(16); doc.text("Lanches do Professor - Fechamento de Caixa", 10, 15);
+        doc.setFontSize(10); 
+        doc.text(`Operador: ${turno.operador.toUpperCase()} | Encerrado em: ${turno.data_fechamento}`, 10, 22);
+        doc.text(`Fundo Inicial na Gaveta: R$ ${turno.fundo_inicial.toFixed(2)}`, 10, 28);
+
+        const rows = [];
+        if(turno.historico_detalhado) {
+            turno.historico_detalhado.forEach(reg => {
+                if(reg.tipo_registro === "Venda") {
+                    let rI={}; reg.itens.forEach(i=>rI[i.nome]=(rI[i.nome]||0)+1);
+                    let det = Object.entries(rI).map(([n,q])=>`${q}x ${n}`).join(', ');
+                    rows.push([reg.horario, "Venda", det, reg.metodo, `R$ ${reg.total.toFixed(2)}`]);
+                } else if (reg.tipo_registro === "Despesa (Dinheiro)") {
+                    rows.push([reg.horario, "Despesa ($)", reg.motivo, "Dinheiro", `- R$ ${reg.total.toFixed(2)}`]);
+                } else if (reg.tipo_registro === "Despesa (Produto)") {
+                    rows.push([reg.horario, "Saída (Est)", `${reg.qtd}x ${reg.nomeProd} (${reg.motivo})`, "-", "-"]);
+                }
+            });
+        }
+
+        doc.autoTable({ startY: 35, head: [['Hora', 'Tipo', 'Detalhes', 'Método', 'Valor']], body: rows, styles: {fontSize: 8}, headStyles: {fillColor:[26, 37, 47]} });
+        
+        let py = doc.lastAutoTable.finalY + 10;
+        if(py>250){doc.addPage(); py=20;}
+
+        doc.setFontSize(11); doc.text("RESUMO FINANCEIRO DO TURNO:", 10, py);
+        doc.setFontSize(9);
+        doc.text(`(+) Dinheiro: R$ ${turno.vendas_dinheiro.toFixed(2)} | (+) Cartão: R$ ${turno.vendas_cartao.toFixed(2)}`, 10, py+6);
+        doc.text(`(-) Despesas do Caixa: R$ ${turno.despesas.toFixed(2)}`, 10, py+12);
+        
+        doc.setFontSize(11); doc.text(`DEVE TER NA GAVETA (Fundo + Dinheiro - Despesa): R$ ${turno.deve_ter_na_gaveta.toFixed(2)}`, 10, py+20);
+        doc.setFontSize(9); doc.text(`* Fiado: R$ ${turno.fiado.toFixed(2)}`, 10, py+28);
+
+        doc.save(`Turno_${turno.operador}_${turno.data_fechamento.replace(/[\/:]/g, '-')}.pdf`);
+    };
+
+    // RELATÓRIO PDF DO GERENTE (TUDO JUNTO - FIM DO DIA)
     window.gerarRelatorioGerencial = () => {
         const { jsPDF } = window.jspdf;
         const doc = new jsPDF();
@@ -252,23 +331,7 @@
         doc.text(`(-) Despesas do Caixa: R$ ${tDes.toFixed(2)}`, 10, 60);
         doc.setFontSize(11); doc.text(`= LUCRO EM DINHEIRO FÍSICO: R$ ${(tD - tDes).toFixed(2)}`, 10, 67);
 
-        doc.setFontSize(12); doc.text("2. HISTÓRICO DE TRANSAÇÕES", 10, 80);
-        const rowsT = [];
-        histVendas.forEach(v => {
-            let res={}; v.itens.forEach(i=>res[i.nome]=(res[i.nome]||0)+1);
-            let det = Object.entries(res).map(([n,q])=>`${q}x ${n}`).join(', ');
-            rowsT.push([v.horario, v.operador, "Venda", det, v.metodo, `R$ ${v.total.toFixed(2)}`]);
-        });
-        histDespesas.forEach(d => {
-            rowsT.push([d.hora, d.operador, "Despesa", d.motivo, "Dinheiro", `-R$ ${d.valor.toFixed(2)}`]);
-        });
-
-        doc.autoTable({ startY: 85, head: [['Hora', 'Op.', 'Tipo', 'Itens', 'Pgto', 'Valor']], body: rowsT, styles: { fontSize: 7 } });
-
-        let py = doc.lastAutoTable.finalY + 15;
-        if(py > 250) { doc.addPage(); py = 20; }
-
-        doc.setFontSize(12); doc.text("3. AUDITORIA DE ESTOQUE", 10, py);
+        doc.setFontSize(12); doc.text("2. AUDITORIA DE ESTOQUE", 10, 80);
         const rowsE = [];
         listaProdutos.forEach(p => {
             const inf = dadosAtuais[p] || {entrada:0, vendido:0, saida:0};
@@ -276,9 +339,9 @@
                 rowsE.push([p, inf.entrada, inf.vendido, inf.saida, (inf.entrada - inf.vendido - inf.saida)]);
             }
         });
-        doc.autoTable({ startY: py+5, head: [['Produto', 'Entrou', 'Vendeu', 'Saiu/Perda', 'Saldo']], body: rowsE, headStyles: {fillColor:[142,68,173]} });
+        doc.autoTable({ startY: 85, head: [['Produto', 'Entrou', 'Vendeu', 'Saiu/Perda', 'Saldo']], body: rowsE, headStyles: {fillColor:[142,68,173]} });
 
-        doc.save(`Auditoria_${new Date().toLocaleDateString()}.pdf`);
+        doc.save(`Auditoria_Geral_${new Date().toLocaleDateString()}.pdf`);
     };
 </script>
 </body>
