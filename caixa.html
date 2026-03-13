@@ -45,7 +45,9 @@
         
         .cart-section { display: flex; flex-direction: column; background: var(--panel); border-radius: 10px; padding: 20px; border: 3px solid var(--primary); overflow: hidden; }
         .cart-list { flex: 1; overflow-y: auto; margin-bottom: 10px; border-bottom: 2px solid #eee; }
-        .cart-item { display: flex; justify-content: space-between; align-items: center; padding: 12px 0; border-bottom: 1px solid #f0f0f0; font-size: 20px; font-weight: 800; }
+        .cart-item { display: flex; flex-direction: column; padding: 12px 0; border-bottom: 1px solid #f0f0f0; cursor: pointer; }
+        .cart-item-main { display: flex; justify-content: space-between; align-items: center; font-size: 20px; font-weight: 800; }
+        .cart-item-obs { font-size: 14px; color: #e67e22; font-style: italic; margin-top: 5px; }
         
         .total-box { padding: 15px 0; text-align: right; flex-shrink: 0; }
         .total-val { font-size: 70px; font-weight: 900; color: var(--primary); line-height: 1; letter-spacing: -2px; }
@@ -104,29 +106,29 @@
                 </div>
                 <div class="items-scroll">
                     <div id="cat-bebi" class="items-grid category-content">
-                        <div class="item-card" onclick="window.addItem('Café P', 1.00)"><span class="stock-badge" id="stock-Café P"></span><i class="fa-solid fa-mug-hot"></i><span class="item-name">Café P</span><span class="item-price">R$ 1,00</span></div>
-                        <div class="item-card" onclick="window.addItem('Café M', 2.00)"><span class="stock-badge" id="stock-Café M"></span><i class="fa-solid fa-mug-hot"></i><span class="item-name">Café M</span><span class="item-price">R$ 2,00</span></div>
-                        <div class="item-card" onclick="window.addItem('Café G', 3.00)"><span class="stock-badge" id="stock-Café G"></span><i class="fa-solid fa-mug-hot"></i><span class="item-name">Café G</span><span class="item-price">R$ 3,00</span></div>
-                        <div class="item-card" onclick="window.addItem('Café Extra', 4.00)"><span class="stock-badge" id="stock-Café Extra"></span><i class="fa-solid fa-mug-hot"></i><span class="item-name">Café Extra</span><span class="item-price">R$ 4,00</span></div>
-                        <div class="item-card" onclick="window.addItem('Café Especial', 5.00)"><span class="stock-badge" id="stock-Café Especial"></span><i class="fa-solid fa-mug-hot"></i><span class="item-name">Café Esp.</span><span class="item-price">R$ 5,00</span></div>
-                        <div class="item-card" onclick="window.addItem('Coca Lata', 6.00)"><span class="stock-badge" id="stock-Coca Lata"></span><i class="fa-solid fa-wine-bottle"></i><span class="item-name">Coca Lata</span><span class="item-price">R$ 6,00</span></div>
-                        <div class="item-card" onclick="window.addItem('Coquinha', 3.00)"><span class="stock-badge" id="stock-Coquinha"></span><i class="fa-solid fa-wine-bottle"></i><span class="item-name">Coquinha</span><span class="item-price">R$ 3,00</span></div>
-                        <div class="item-card" onclick="window.addItem('Guaraná Nat.', 2.50)"><span class="stock-badge" id="stock-Guaraná Nat."></span><i class="fa-solid fa-glass-water"></i><span class="item-name">Guaraná Nat.</span><span class="item-price">R$ 2,50</span></div>
-                        <div class="item-card" onclick="window.addItem('Água Gás', 4.00)"><span class="stock-badge" id="stock-Água Gás"></span><i class="fa-solid fa-droplet"></i><span class="item-name">Água Gás</span><span class="item-price">R$ 4,00</span></div>
-                        <div class="item-card" onclick="window.addItem('Água Nat.', 2.00)"><span class="stock-badge" id="stock-Água Nat."></span><i class="fa-solid fa-droplet"></i><span class="item-name">Água Nat.</span><span class="item-price">R$ 2,00</span></div>
-                        <div class="item-card" onclick="window.addItem('Rodízio Cana', 5.00)"><span class="stock-badge" id="stock-Rodízio Cana"></span><i class="fa-solid fa-seedling"></i><span class="item-name">Rodízio Cana</span><span class="item-price">R$ 5,00</span></div>
-                        <div class="item-card" onclick="window.addItem('Caldo Garrafa', 8.00)"><span class="stock-badge" id="stock-Caldo Garrafa"></span><i class="fa-solid fa-bottle-droplet"></i><span class="item-name">Caldo Garrafa</span><span class="item-price">R$ 8,00</span></div>
+                        <div class="item-card" onclick="window.addItem('Café P', 1.00)"><span class="stock-badge" id="stock-Café P">0</span><i class="fa-solid fa-mug-hot"></i><span class="item-name">Café P</span><span class="item-price">R$ 1,00</span></div>
+                        <div class="item-card" onclick="window.addItem('Café M', 2.00)"><span class="stock-badge" id="stock-Café M">0</span><i class="fa-solid fa-mug-hot"></i><span class="item-name">Café M</span><span class="item-price">R$ 2,00</span></div>
+                        <div class="item-card" onclick="window.addItem('Café G', 3.00)"><span class="stock-badge" id="stock-Café G">0</span><i class="fa-solid fa-mug-hot"></i><span class="item-name">Café G</span><span class="item-price">R$ 3,00</span></div>
+                        <div class="item-card" onclick="window.addItem('Café Extra', 4.00)"><span class="stock-badge" id="stock-Café Extra">0</span><i class="fa-solid fa-mug-hot"></i><span class="item-name">Café Extra</span><span class="item-price">R$ 4,00</span></div>
+                        <div class="item-card" onclick="window.addItem('Café Especial', 5.00)"><span class="stock-badge" id="stock-Café Especial">0</span><i class="fa-solid fa-mug-hot"></i><span class="item-name">Café Esp.</span><span class="item-price">R$ 5,00</span></div>
+                        <div class="item-card" onclick="window.addItem('Coca Lata', 6.00)"><span class="stock-badge" id="stock-Coca Lata">0</span><i class="fa-solid fa-wine-bottle"></i><span class="item-name">Coca Lata</span><span class="item-price">R$ 6,00</span></div>
+                        <div class="item-card" onclick="window.addItem('Coquinha', 3.00)"><span class="stock-badge" id="stock-Coquinha">0</span><i class="fa-solid fa-wine-bottle"></i><span class="item-name">Coquinha</span><span class="item-price">R$ 3,00</span></div>
+                        <div class="item-card" onclick="window.addItem('Guaraná Nat.', 2.50)"><span class="stock-badge" id="stock-Guaraná Nat.">0</span><i class="fa-solid fa-glass-water"></i><span class="item-name">Guaraná Nat.</span><span class="item-price">R$ 2,50</span></div>
+                        <div class="item-card" onclick="window.addItem('Água Gás', 4.00)"><span class="stock-badge" id="stock-Água Gás">0</span><i class="fa-solid fa-droplet"></i><span class="item-name">Água Gás</span><span class="item-price">R$ 4,00</span></div>
+                        <div class="item-card" onclick="window.addItem('Água Nat.', 2.00)"><span class="stock-badge" id="stock-Água Nat.">0</span><i class="fa-solid fa-droplet"></i><span class="item-name">Água Nat.</span><span class="item-price">R$ 2,00</span></div>
+                        <div class="item-card" onclick="window.addItem('Rodízio Cana', 5.00)"><span class="stock-badge" id="stock-Rodízio Cana">0</span><i class="fa-solid fa-seedling"></i><span class="item-name">Rodízio Cana</span><span class="item-price">R$ 5,00</span></div>
+                        <div class="item-card" onclick="window.addItem('Caldo Garrafa', 8.00)"><span class="stock-badge" id="stock-Caldo Garrafa">0</span><i class="fa-solid fa-bottle-droplet"></i><span class="item-name">Caldo Garrafa</span><span class="item-price">R$ 8,00</span></div>
                     </div>
                     <div id="cat-alimento" class="items-grid category-content" style="display:none">
-                        <div class="item-card" onclick="window.addItem('Pastel Especial', 8.00)"><span class="stock-badge" id="stock-Pastel Especial"></span><i class="fa-solid fa-star"></i><span class="item-name">Pastel Esp.</span><span class="item-price">R$ 8,00</span></div>
-                        <div class="item-card" onclick="window.addItem('Pastel Comum', 7.00)"><span class="stock-badge" id="stock-Pastel Comum"></span><i class="fa-solid fa-utensils"></i><span class="item-name">Pastel Comum</span><span class="item-price">R$ 7,00</span></div>
-                        <div class="item-card" onclick="window.addItem('Salgado', 6.00)"><span class="stock-badge" id="stock-Salgado"></span><i class="fa-solid fa-bread-slice"></i><span class="item-name">Salgado</span><span class="item-price">R$ 6,00</span></div>
-                        <div class="item-card" onclick="window.addItem('Bolo Fatia', 4.00)"><span class="stock-badge" id="stock-Bolo Fatia"></span><i class="fa-solid fa-cake"></i><span class="item-name">Bolo Fatia</span><span class="item-price">R$ 4,00</span></div>
+                        <div class="item-card" onclick="window.addItem('Pastel Especial', 8.00)"><span class="stock-badge" id="stock-Pastel Especial">0</span><i class="fa-solid fa-star"></i><span class="item-name">Pastel Esp.</span><span class="item-price">R$ 8,00</span></div>
+                        <div class="item-card" onclick="window.addItem('Pastel Comum', 7.00)"><span class="stock-badge" id="stock-Pastel Comum">0</span><i class="fa-solid fa-utensils"></i><span class="item-name">Pastel Comum</span><span class="item-price">R$ 7,00</span></div>
+                        <div class="item-card" onclick="window.addItem('Salgado', 6.00)"><span class="stock-badge" id="stock-Salgado">0</span><i class="fa-solid fa-bread-slice"></i><span class="item-name">Salgado</span><span class="item-price">R$ 6,00</span></div>
+                        <div class="item-card" onclick="window.addItem('Bolo Fatia', 4.00)"><span class="stock-badge" id="stock-Bolo Fatia">0</span><i class="fa-solid fa-cake"></i><span class="item-name">Bolo Fatia</span><span class="item-price">R$ 4,00</span></div>
                     </div>
                     <div id="cat-outros" class="items-grid category-content" style="display:none">
-                        <div class="item-card" onclick="window.addItem('Cigarro Var.', 1.00)"><span class="stock-badge" id="stock-Cigarro Var."></span><i class="fa-solid fa-smoking"></i><span class="item-name">Cigarro Var.</span><span class="item-price">R$ 1,00</span></div>
-                        <div class="item-card" onclick="window.addItem('Cigarro G', 0.50)"><span class="stock-badge" id="stock-Cigarro G"></span><i class="fa-solid fa-smoking"></i><span class="item-name">Cigarro G</span><span class="item-price">R$ 0,50</span></div>
-                        <div class="item-card" onclick="window.addItem('Bala Drop', 2.50)"><span class="stock-badge" id="stock-Bala Drop"></span><i class="fa-solid fa-candy-cane"></i><span class="item-name">Bala Drop</span><span class="item-price">R$ 2,50</span></div>
+                        <div class="item-card" onclick="window.addItem('Cigarro Var.', 1.00)"><span class="stock-badge" id="stock-Cigarro Var.">0</span><i class="fa-solid fa-smoking"></i><span class="item-name">Cigarro Var.</span><span class="item-price">R$ 1,00</span></div>
+                        <div class="item-card" onclick="window.addItem('Cigarro G', 0.50)"><span class="stock-badge" id="stock-Cigarro G">0</span><i class="fa-solid fa-smoking"></i><span class="item-name">Cigarro G</span><span class="item-price">R$ 0,50</span></div>
+                        <div class="item-card" onclick="window.addItem('Bala Drop', 2.50)"><span class="stock-badge" id="stock-Bala Drop">0</span><i class="fa-solid fa-candy-cane"></i><span class="item-name">Bala Drop</span><span class="item-price">R$ 2,50</span></div>
                     </div>
                 </div>
             </div>
@@ -151,7 +153,7 @@
 
 <script type="module">
     import { initializeApp } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-app.js";
-    import { getDatabase, ref, push, onValue } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-database.js";
+    import { getDatabase, ref, push, onValue, set, get } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-database.js";
 
     const firebaseConfig = {
         apiKey: "AIzaSyAsqDoeAaHoYc1jhstaldVXfnPRMrUPPwo",
@@ -165,7 +167,7 @@
     const app = initializeApp(firebaseConfig);
     const db = getDatabase(app);
 
-    let dbLocal = { funcionarioAtivo: "", fundoAtivo: 0, vendasDoDia: [], entradas: {} };
+    let dbLocal = { funcionarioAtivo: "", fundoAtivo: 0, vendasDoDia: [], estoqueManual: {} };
     let carrinho = [];
 
     window.verificarAdm = () => {
@@ -202,13 +204,15 @@
         let total = 0;
         list.innerHTML = carrinho.map((i, idx) => {
             total += i.preco;
-            return `<div class="cart-item" onclick="window.removerItem(${idx})"><span>${i.nome}</span><b>R$ ${i.preco.toFixed(2)}</b></div>`;
+            return `<div class="cart-item" onclick="window.removerItem(${idx})">
+                        <div class="cart-item-main"><span>${i.nome}</span><b>R$ ${i.preco.toFixed(2)}</b></div>
+                    </div>`;
         }).join('');
         document.getElementById('cart-total').innerText = `R$ ${total.toFixed(2).replace('.', ',')}`;
     }
 
-    // OBSERVAÇÃO SÓ NA HORA DE FECHAR A VENDA
-    window.finalizarVenda = (metodo) => {
+    // OBSERVAÇÃO NA HORA DE FECHAR E SINCRONIZAÇÃO COM GERENTE
+    window.finalizarVenda = async (metodo) => {
         if(carrinho.length === 0) return;
         
         const obsVenda = prompt("ALGO A OBSERVAR NESTA VENDA? (OPCIONAL)", "");
@@ -223,12 +227,40 @@
             observacao: obsVenda || "Nenhuma"
         };
         
+        // 1. Salva o histórico da venda
         push(ref(db, 'lanches/vendas'), venda);
+
+        // 2. Atualiza os totais de vendidos na nova estrutura do Gerente (estoque_manual)
+        const estoqueRef = ref(db, 'lanches/estoque_manual');
+        const snapshot = await get(estoqueRef);
+        const estoqueAtual = snapshot.val() || {};
+
+        carrinho.forEach(item => {
+            const prod = item.nome;
+            const infoAntiga = estoqueAtual[prod] || { entrada: 0, vendido: 0, saida: 0 };
+            
+            // Só conta como "vendido" se for dinheiro/cartão/fiado. Consumo entra como saída/perda? 
+            // Vamos considerar tudo como vendido, exceto se você preferir diferente.
+            let novoVendido = infoAntiga.vendido + 1;
+            let novaSaida = infoAntiga.saida;
+
+            if (metodo === 'Consumo') {
+                novoVendido = infoAntiga.vendido; // Não é venda
+                novaSaida = infoAntiga.saida + 1; // É saída
+            }
+
+            set(ref(db, `lanches/estoque_manual/${prod}`), {
+                ...infoAntiga,
+                vendido: novoVendido,
+                saida: novaSaida
+            });
+        });
+
         window.limparCarrinho();
         alert(`VENDA CONCLUÍDA NO ${metodo.toUpperCase()}!`);
     };
 
-    window.lancarDespesaRapida = () => {
+    window.lancarDespesaRapida = async () => {
         const tipo = prompt("1-DINHEIRO DO CAIXA | 2-PRODUTO DO ESTOQUE");
         if(tipo === "1") {
             const valor = prompt("VALOR R$:");
@@ -238,36 +270,42 @@
                 alert("DINHEIRO RETIRADO REGISTRADO!");
             }
         } else if(tipo === "2") {
-            const prod = prompt("NOME DO PRODUTO:");
+            const prod = prompt("NOME DO PRODUTO (Igual ao sistema):");
             const motivo = prompt("MOTIVO DA SAÍDA:");
-            if(prod && motivo) {
-                push(ref(db, 'lanches/vendas'), { operador: dbLocal.funcionarioAtivo, itens: [{nome: prod, preco: 0}], total: 0, metodo: "Despesa/Perda", observacao: motivo });
+            const qtd = parseInt(prompt("QUANTIDADE:", "1"));
+            
+            if(prod && motivo && !isNaN(qtd)) {
+                // Atualiza a saída no painel do gerente
+                const prodRef = ref(db, `lanches/estoque_manual/${prod}`);
+                const snap = await get(prodRef);
+                const info = snap.val() || { entrada: 0, vendido: 0, saida: 0 };
+                
+                set(prodRef, {
+                    ...info,
+                    saida: info.saida + qtd
+                });
                 alert("SAÍDA DE PRODUTO REGISTRADA!");
             }
         }
     };
 
-    onValue(ref(db, 'lanches/'), (snapshot) => {
-        const data = snapshot.val();
-        if(data) {
-            dbLocal.vendasDoDia = data.vendas ? Object.values(data.vendas) : [];
-            dbLocal.entradas = data.entradas || {};
-            atualizarEstoqueVisual();
-        }
+    // Escuta a estrutura nova do gerente para atualizar as badges visuais
+    onValue(ref(db, 'lanches/estoque_manual'), (snapshot) => {
+        const data = snapshot.val() || {};
+        dbLocal.estoqueManual = data;
+        atualizarEstoqueVisual();
     });
 
     function atualizarEstoqueVisual() {
-        let resumoVendas = {};
-        dbLocal.vendasDoDia.forEach(v => {
-            v.itens.forEach(i => resumoVendas[i.nome] = (resumoVendas[i.nome] || 0) + 1);
-        });
-        Object.keys(dbLocal.entradas).forEach(nome => {
-            const badge = document.getElementById('stock-' + nome);
-            if(badge) {
-                const saldo = dbLocal.entradas[nome] - (resumoVendas[nome] || 0);
-                badge.innerText = saldo;
-                badge.style.color = saldo <= 2 ? 'red' : 'lime';
-            }
+        // Percorre as tags na tela e atualiza com Saldo (Entrada - Vendido - Saída)
+        document.querySelectorAll('.stock-badge').forEach(badge => {
+            const nomeProd = badge.id.replace('stock-', '');
+            const info = dbLocal.estoqueManual[nomeProd] || { entrada: 0, vendido: 0, saida: 0 };
+            const saldo = info.entrada - info.vendido - info.saida;
+            
+            badge.innerText = saldo;
+            badge.style.color = saldo <= 2 ? '#ffcccc' : '#fff';
+            badge.style.background = saldo <= 2 ? '#c0392b' : '#333';
         });
     }
 
@@ -276,6 +314,14 @@
         document.querySelectorAll('.tab-btn').forEach(e => e.classList.remove('active'));
         document.getElementById('cat-'+id).style.display = 'grid';
         btn.classList.add('active');
+    };
+
+    window.gerarRelatorio = () => {
+        const { jsPDF } = window.jspdf;
+        const doc = new jsPDF();
+        doc.text("Relatorio Caixa - Lanches do Professor", 10, 10);
+        doc.text("Feche o painel do Gerente para relatório completo.", 10, 20);
+        doc.save(`Vendas_Caixa_${new Date().toLocaleDateString()}.pdf`);
     };
 
     window.trocarTurno = () => location.reload();
