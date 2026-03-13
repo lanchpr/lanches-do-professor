@@ -42,7 +42,6 @@
         .cart-list { flex: 1; overflow-y: auto; margin-bottom: 10px; border-bottom: 2px solid #eee; }
         .cart-item { display: flex; flex-direction: column; padding: 12px 0; border-bottom: 1px solid #f0f0f0; cursor: pointer; }
         .cart-item-main { display: flex; justify-content: space-between; align-items: center; font-size: 20px; font-weight: 800; }
-        .cart-item-obs { font-size: 14px; color: #e67e22; font-style: italic; margin-top: 5px; }
         
         .total-box { padding: 15px 0; text-align: right; flex-shrink: 0; }
         .total-val { font-size: 70px; font-weight: 900; color: var(--primary); line-height: 1; letter-spacing: -2px; }
@@ -84,7 +83,7 @@
             <h2>ABRIR TURNO</h2>
             <div style="text-align: left; margin-bottom: 10px;">
                 <input type="text" id="cashier-name" placeholder="Seu Nome">
-                <label>Fundo de Caixa (R$):</label>
+                <label>Fundo de Caixa Inicial (R$):</label>
                 <input type="number" id="initial-balance" value="0.00">
             </div>
             <button class="btn btn-cash" onclick="window.abrirCaixa()">ENTRAR NO PDV</button>
@@ -148,7 +147,7 @@
                 </div>
                 
                 <button class="btn" style="background:#94a3b8; font-size:16px; margin-top:10px; padding:15px;" onclick="window.limparCarrinho()">LIMPAR TUDO</button>
-                <button class="btn" style="background:transparent; color:#999; border:1px solid #ccc; font-size:14px; margin-top:5px; padding:10px;" onclick="window.trocarTurno()">TROCAR TURNO</button>
+                <button class="btn" style="background:transparent; color:#999; border:1px solid #ccc; font-size:14px; margin-top:5px; padding:10px;" onclick="window.trocarTurno()">TROCAR TURNO / RELATÓRIO</button>
             </div>
         </div>
     </div>
@@ -157,8 +156,6 @@
 <script type="module">
     import { initializeApp } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-app.js";
     import { getDatabase, ref, push, get, set } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-database.js";
-    import { initializeFirestore, enableIndexedDbPersistence } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-firestore.js"; 
-    // Usamos o RTDB puro, mas o Firebase tem cache automático se programarmos salvamento local.
 
     const firebaseConfig = {
         apiKey: "AIzaSyAsqDoeAaHoYc1jhstaldVXfnPRMrUPPwo",
@@ -175,10 +172,10 @@
     let dbLocal = { funcionarioAtivo: "", fundoAtivo: 0 };
     let carrinho = [];
     
-    // VARIÁVEL PARA O MODO OFFLINE
+    // Variável para vendas offline
     let vendasOffline = JSON.parse(localStorage.getItem('vendasPendentes') || "[]");
 
-    // Monitora a Internet
+    // Monitoramento da Conexão
     const statusEl = document.getElementById('status-net');
     window.addEventListener('online', () => {
         statusEl.className = 'net-on'; statusEl.innerText = 'ONLINE';
@@ -201,11 +198,17 @@
         const nome = document.getElementById('cashier-name').value.trim();
         const fundo = parseFloat(document.getElementById('initial-balance').value);
         if(!nome) return alert("DIGITE SEU NOME!");
+        
         dbLocal.funcionarioAtivo = nome;
         dbLocal.fundoAtivo = isNaN(fundo) ? 0 : fundo;
+        
+        // Limpa o histórico da sessão anterior para gerar um relatório novo
+        sessionStorage.setItem('historicoSessao', "[]");
+        sessionStorage.setItem('fundoSessao', dbLocal.fundoAtivo);
+        
         document.getElementById('screen-open').style.display = 'none';
         document.getElementById('screen-pdv').classList.add('active');
-        document.getElementById('info-topo').innerHTML = `${nome.toUpperCase()} | FUNDO: R$ ${fundo.toFixed(2)}`;
+        document.getElementById('info-topo').innerHTML = `${nome.toUpperCase()} | FUNDO: R$ ${dbLocal.fundoAtivo.toFixed(2)}`;
     };
 
     window.addItem = (nome, preco) => {
@@ -228,65 +231,74 @@
         document.getElementById('cart-total').innerText = `R$ ${total.toFixed(2).replace('.', ',')}`;
     }
 
-    // FINALIZAR VENDA (COM SUPORTE OFFLINE)
+    // FINALIZAR VENDA (CORRIGIDO BUG DE MÚLTIPLOS ITENS)
     window.finalizarVenda = async (metodo) => {
         if(carrinho.length === 0) return;
         
-        const obsVenda = prompt("ALGO A OBSERVAR NESTA VENDA? (OPCIONAL)", "");
+        const obsVenda = prompt("Observação para esta venda? (Opcional)", "");
         const total = carrinho.reduce((acc, i) => acc + i.preco, 0);
         
         const venda = {
+            tipo_registro: "Venda",
             horario: new Date().toLocaleTimeString('pt-BR'),
             operador: dbLocal.funcionarioAtivo,
-            itens: [...carrinho],
+            itens: [...carrinho], // Clona o carrinho para não perder os dados
             total: total,
             metodo: metodo,
-            observacao: obsVenda || "Nenhuma"
+            observacao: obsVenda || "---"
         };
 
-        // Salva a venda no histórico da sessão (para o PDF)
-        let historicoSessao = JSON.parse(sessionStorage.getItem('historicoSessao') || "[]");
-        historicoSessao.push(venda);
-        sessionStorage.setItem('historicoSessao', JSON.stringify(historicoSessao));
+        // Salva na memória do turno para gerar o PDF depois
+        let historico = JSON.parse(sessionStorage.getItem('historicoSessao') || "[]");
+        historico.push(venda);
+        sessionStorage.setItem('historicoSessao', JSON.stringify(historico));
+
+        // Conta quantos itens iguais existem no carrinho (ex: 2 Cafés P)
+        let resumoItensVendidos = {};
+        carrinho.forEach(item => {
+            resumoItensVendidos[item.nome] = (resumoItensVendidos[item.nome] || 0) + 1;
+        });
 
         if (navigator.onLine) {
-            // Se tiver internet, manda pro Firebase
             try {
+                // 1. Manda a venda inteira pro histórico do Gerente
                 push(ref(db, 'lanches/vendas'), venda);
                 
-                // Atualiza o Gerente
+                // 2. Atualiza a tabela do Gerente (Estoque_Manual)
                 const estoqueRef = ref(db, 'lanches/estoque_manual');
                 const snapshot = await get(estoqueRef);
                 const estoqueAtual = snapshot.val() || {};
 
-                carrinho.forEach(item => {
-                    const prod = item.nome;
-                    const infoAntiga = estoqueAtual[prod] || { entrada: 0, vendido: 0, saida: 0 };
-                    let novoVendido = infoAntiga.vendido + 1;
-                    let novaSaida = infoAntiga.saida;
+                // Para cada tipo de produto vendido, soma a quantidade correta
+                Object.keys(resumoItensVendidos).forEach(nomeProd => {
+                    const qtdVendidaDesteItem = resumoItensVendidos[nomeProd];
+                    const infoAntiga = estoqueAtual[nomeProd] || { entrada: 0, vendido: 0, saida: 0 };
+                    
+                    let nVend = infoAntiga.vendido;
+                    let nSai = infoAntiga.saida;
 
                     if (metodo === 'Consumo') {
-                        novoVendido = infoAntiga.vendido; 
-                        novaSaida = infoAntiga.saida + 1; 
+                        nSai += qtdVendidaDesteItem; // Consumo vai para Saída
+                    } else {
+                        nVend += qtdVendidaDesteItem; // O resto vai para Vendido
                     }
 
-                    set(ref(db, `lanches/estoque_manual/${prod}`), { ...infoAntiga, vendido: novoVendido, saida: novaSaida });
+                    set(ref(db, `lanches/estoque_manual/${nomeProd}`), { ...infoAntiga, vendido: nVend, saida: nSai });
                 });
             } catch (e) {
-                // Se der erro de rede no meio, salva offline
-                salvarOffline(venda);
+                salvarOffline(venda, resumoItensVendidos);
             }
         } else {
-            // Sem internet, salva no navegador
-            salvarOffline(venda);
+            salvarOffline(venda, resumoItensVendidos);
         }
 
         window.limparCarrinho();
-        alert(`VENDA CONCLUÍDA NO ${metodo.toUpperCase()}!`);
+        alert(`VENDA FINALIZADA NO ${metodo.toUpperCase()}!`);
     };
 
-    function salvarOffline(venda) {
-        vendasOffline.push(venda);
+    function salvarOffline(venda, resumoItens) {
+        // Guarda a venda e também o resumo de quantas unidades para facilitar a sincronização depois
+        vendasOffline.push({venda: venda, resumoItens: resumoItens});
         localStorage.setItem('vendasPendentes', JSON.stringify(vendasOffline));
     }
 
@@ -296,36 +308,51 @@
             const snapshot = await get(estoqueRef);
             let estoqueAtual = snapshot.val() || {};
 
-            for (let venda of vendasOffline) {
-                push(ref(db, 'lanches/vendas'), venda);
+            for (let obj of vendasOffline) {
+                push(ref(db, 'lanches/vendas'), obj.venda);
                 
-                venda.itens.forEach(item => {
-                    const prod = item.nome;
-                    if(!estoqueAtual[prod]) estoqueAtual[prod] = { entrada: 0, vendido: 0, saida: 0 };
+                Object.keys(obj.resumoItens).forEach(nomeProd => {
+                    const qtd = obj.resumoItens[nomeProd];
+                    if(!estoqueAtual[nomeProd]) estoqueAtual[nomeProd] = { entrada: 0, vendido: 0, saida: 0 };
                     
-                    if (venda.metodo === 'Consumo') {
-                        estoqueAtual[prod].saida += 1;
+                    if (obj.venda.metodo === 'Consumo') {
+                        estoqueAtual[nomeProd].saida += qtd;
                     } else {
-                        estoqueAtual[prod].vendido += 1;
+                        estoqueAtual[nomeProd].vendido += qtd;
                     }
-                    set(ref(db, `lanches/estoque_manual/${prod}`), estoqueAtual[prod]);
+                    set(ref(db, `lanches/estoque_manual/${nomeProd}`), estoqueAtual[nomeProd]);
                 });
             }
             vendasOffline = [];
             localStorage.setItem('vendasPendentes', "[]");
-            alert("Vendas offline sincronizadas com sucesso!");
+            alert("Sincronização offline concluída com o Gerente!");
         }
     }
 
+    // LANÇAR DESPESAS
     window.lancarDespesaRapida = () => {
-        if(!navigator.onLine) return alert("Precisa de internet para lançar despesa!");
-        const tipo = prompt("1-DINHEIRO DO CAIXA | 2-PRODUTO DO ESTOQUE");
+        const tipo = prompt("TIPO DE DESPESA: \n1 - Tirar DINHEIRO \n2 - Tirar PRODUTO (Estoque)");
         if(tipo === "1") {
-            const valor = prompt("VALOR R$:");
+            const valor = parseFloat(prompt("VALOR (R$):"));
             const motivo = prompt("MOTIVO:");
             if(valor && motivo) {
-                push(ref(db, 'lanches/despesas'), { tipo: "Dinheiro", valor: parseFloat(valor), motivo, operador: dbLocal.funcionarioAtivo, hora: new Date().toLocaleTimeString() });
-                alert("DINHEIRO RETIRADO REGISTRADO!");
+                const despesa = {
+                    tipo_registro: "Despesa (Dinheiro)",
+                    horario: new Date().toLocaleTimeString('pt-BR'),
+                    operador: dbLocal.funcionarioAtivo,
+                    total: valor,
+                    motivo: motivo
+                };
+                
+                // Salva no histórico da sessão
+                let historico = JSON.parse(sessionStorage.getItem('historicoSessao') || "[]");
+                historico.push(despesa);
+                sessionStorage.setItem('historicoSessao', JSON.stringify(historico));
+
+                if(navigator.onLine) {
+                    push(ref(db, 'lanches/despesas'), despesa);
+                }
+                alert("Despesa em dinheiro registrada!");
             }
         }
     };
@@ -337,34 +364,77 @@
         btn.classList.add('active');
     };
 
-    // TROCAR TURNO COM OPÇÃO DE PDF
+    // FUNÇÃO DO RELATÓRIO DO TURNO (BEM DETALHADO)
     window.trocarTurno = () => {
-        if(confirm("Deseja baixar o relatório de vendas do seu turno antes de sair?")) {
+        if(confirm("Deseja baixar o relatório completo do seu turno antes de fechar o caixa?")) {
             gerarRelatorioTurno();
         }
-        sessionStorage.removeItem('historicoSessao');
         location.reload();
     };
 
     function gerarRelatorioTurno() {
         const { jsPDF } = window.jspdf;
         const doc = new jsPDF();
-        doc.text(`Relatório do Turno: ${dbLocal.funcionarioAtivo.toUpperCase()}`, 10, 10);
         
+        const fundo = parseFloat(sessionStorage.getItem('fundoSessao') || 0);
         let historico = JSON.parse(sessionStorage.getItem('historicoSessao') || "[]");
         
+        doc.setFontSize(16);
+        doc.text("Lanches do Professor - Fechamento de Caixa", 10, 15);
+        doc.setFontSize(10);
+        doc.text(`Operador: ${dbLocal.funcionarioAtivo.toUpperCase()} | Data: ${new Date().toLocaleDateString()}`, 10, 22);
+        doc.text(`Fundo Inicial na Gaveta: R$ ${fundo.toFixed(2)}`, 10, 28);
+
         if(historico.length === 0) {
-            doc.text("Nenhuma venda registrada neste turno.", 10, 20);
-        } else {
-            const rows = [];
-            historico.forEach(v => {
-                let produtos = v.itens.map(i => i.nome).join(', ');
-                rows.push([v.horario, produtos, v.metodo, v.observacao, `R$ ${v.total.toFixed(2)}`]);
-            });
-            doc.autoTable({ startY: 20, head: [['Hora', 'Produtos', 'Tipo', 'Obs', 'Total']], body: rows });
+            doc.text("Nenhuma movimentação registrada.", 10, 40);
+            doc.save(`Caixa_${dbLocal.funcionarioAtivo}.pdf`);
+            return;
         }
+
+        let totDinheiro = 0, totCartao = 0, totFiado = 0, totConsumo = 0, totDespesas = 0;
+        const rows = [];
+
+        historico.forEach(reg => {
+            if(reg.tipo_registro === "Venda") {
+                let detalhes = reg.itens.map(i => i.nome).join(', ');
+                rows.push([reg.horario, "Venda", detalhes, reg.metodo, `R$ ${reg.total.toFixed(2)}`]);
+                
+                if(reg.metodo === 'Dinheiro') totDinheiro += reg.total;
+                if(reg.metodo === 'Cartão') totCartao += reg.total;
+                if(reg.metodo === 'Fiado') totFiado += reg.total;
+                if(reg.metodo === 'Consumo') totConsumo += reg.total;
+                
+            } else if (reg.tipo_registro === "Despesa (Dinheiro)") {
+                rows.push([reg.horario, "Despesa", reg.motivo, "Dinheiro", `- R$ ${reg.total.toFixed(2)}`]);
+                totDespesas += reg.total;
+            }
+        });
+
+        doc.autoTable({
+            startY: 35,
+            head: [['Hora', 'Tipo', 'Detalhes/Itens', 'Método', 'Valor']],
+            body: rows,
+            styles: { fontSize: 8 },
+            headStyles: { fillColor: [26, 37, 47] }
+        });
+
+        let posY = doc.lastAutoTable.finalY + 10;
+        doc.setFontSize(11);
+        doc.text("RESUMO FINANCEIRO DO TURNO:", 10, posY);
+        doc.setFontSize(9);
+        doc.text(`(+) Entrou em Dinheiro: R$ ${totDinheiro.toFixed(2)}`, 10, posY + 6);
+        doc.text(`(+) Entrou em Cartão: R$ ${totCartao.toFixed(2)}`, 10, posY + 11);
+        doc.text(`(=) Subtotal Vendas: R$ ${(totDinheiro + totCartao).toFixed(2)}`, 10, posY + 16);
         
-        doc.save(`Turno_${dbLocal.funcionarioAtivo}_${new Date().toLocaleDateString()}.pdf`);
+        doc.text(`(-) Despesas Tiradas do Caixa: R$ ${totDespesas.toFixed(2)}`, 10, posY + 26);
+        
+        doc.setFontSize(11);
+        doc.text(`DEVE TER NA GAVETA (Fundo + Dinheiro - Despesas): R$ ${(fundo + totDinheiro - totDespesas).toFixed(2)}`, 10, posY + 35);
+        
+        doc.setFontSize(9);
+        doc.text(`* Fiado pendente: R$ ${totFiado.toFixed(2)} | * Consumo interno: R$ ${totConsumo.toFixed(2)}`, 10, posY + 45);
+
+        doc.save(`Fechamento_${dbLocal.funcionarioAtivo}_${new Date().toLocaleDateString()}.pdf`);
     }
 
 </script>
