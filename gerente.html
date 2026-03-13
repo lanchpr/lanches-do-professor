@@ -25,7 +25,7 @@
         select, input { width: 100%; padding: 10px; border: 1px solid #ddd; border-radius: 6px; margin-top: 5px; margin-bottom: 10px; }
         .btn { width: 100%; padding: 12px; border: none; border-radius: 6px; font-weight: bold; cursor: pointer; color: white; }
         .btn-add { background: var(--success); }
-        .btn-reset { background: transparent; color: #999; border: 1px solid #eee; font-size: 10px; margin-top: auto; }
+        .btn-reset { background: var(--danger); font-size: 12px; margin-top: auto; }
         table { width: 100%; border-collapse: collapse; font-size: 13px; }
         th { background: #f8f9fa; padding: 10px; text-align: left; position: sticky; top: 0; z-index: 10; }
         td { padding: 10px; border-bottom: 1px solid #eee; }
@@ -59,11 +59,11 @@
             <label>Quantidade colocada:</label>
             <input type="number" id="prod-qty" value="10">
             <button class="btn btn-add" onclick="window.lancarEntrada()"><i class="fa-solid fa-plus"></i> LANÇAR NA NUVEM</button>
-            <button class="btn btn-reset" onclick="window.zerarTudo()">ENCERRAR EXPEDIENTE (LIMPAR NUVEM)</button>
+            <button class="btn btn-reset" onclick="window.zerarTudo()"><i class="fa-solid fa-trash-can"></i> ZERAR TUDO (NOVO DIA)</button>
         </div>
 
         <div class="panel">
-            <h4 style="margin:0 0 10px 0">Auditoria Auditoria (Tempo Real)</h4>
+            <h4 style="margin:0 0 10px 0">Auditoria (Tempo Real)</h4>
             <div class="scroll">
                 <table>
                     <thead><tr><th>Produto</th><th>Entrada</th><th>Vendido</th><th>Saldo</th><th>Status</th></tr></thead>
@@ -80,13 +80,12 @@
 
     // --- CONFIGURAÇÃO FIREBASE ---
     const firebaseConfig = {
-        apiKey: "SUA_API_KEY",
+        apiKey: "AIzaSyAsqDoeAaHoYc1jhstaldVXfnPRMrUPPwo",
         authDomain: "lanches-do-professor.firebaseapp.com",
-        databaseURL: "https://lanches-do-professor-default-rtdb.firebaseio.com",
         projectId: "lanches-do-professor",
-        storageBucket: "lanches-do-professor.appspot.com",
-        messagingSenderId: "123",
-        appId: "1:123:web:abc"
+        storageBucket: "lanches-do-professor.firebasestorage.app",
+        messagingSenderId: "805888557726",
+        appId: "1:805888557726:web:41f2ad48ebbc8aac0f318f"
     };
 
     const app = initializeApp(firebaseConfig);
@@ -103,12 +102,16 @@
         } else {
             document.getElementById('audit-table').innerHTML = "";
             document.getElementById('total-vendas').innerText = "R$ 0,00";
+            document.getElementById('total-entradas').innerText = "0 un";
+            document.getElementById('total-faltas').innerText = "0 un";
         }
     });
 
     window.lancarEntrada = () => {
         const p = document.getElementById('prod-select').value;
         const q = parseInt(document.getElementById('prod-qty').value);
+        if(isNaN(q) || q <= 0) return alert("Insira uma quantidade válida.");
+        
         const novaQtd = (dbLocal.entradas[p] || 0) + q;
         set(ref(db, 'lanches/entradas/' + p), novaQtd);
         alert("Nuvem atualizada!");
@@ -143,24 +146,25 @@
     }
 
     window.zerarTudo = () => {
-        if(confirm("ATENÇÃO: Isso apaga todos os dados da nuvem para o próximo dia!")) {
-            remove(ref(db, 'lanches/'));
+        if(confirm("ATENÇÃO: Isso apaga todas as vendas e o estoque na nuvem para começar um novo dia!")) {
+            remove(ref(db, 'lanches/'))
+                .then(() => alert("Sistema limpo com sucesso!"))
+                .catch((e) => alert("Erro ao limpar: " + e));
         }
     };
 
     window.baixarRelatorio = () => {
         const { jsPDF } = window.jspdf;
         const doc = new jsPDF();
-        doc.text("Relatorio Gerencial Online", 14, 15);
+        doc.text("Relatorio Gerencial Online - Lanches do Professor", 14, 15);
         const rows = [];
         const table = document.getElementById('audit-table');
         for (let row of table.rows) {
             rows.push([row.cells[0].innerText, row.cells[1].innerText, row.cells[2].innerText, row.cells[3].innerText, row.cells[4].innerText]);
         }
         doc.autoTable({ startY: 25, head: [['Prod', 'Ent', 'Vend', 'Saldo', 'Status']], body: rows });
-        doc.save("Fechamento_Online.pdf");
+        doc.save(`Fechamento_${new Date().toLocaleDateString()}.pdf`);
     };
 </script>
 </body>
 </html>
-
