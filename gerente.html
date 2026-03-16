@@ -10,13 +10,13 @@
     <style>
         :root { --manager: #8e44ad; --primary: #1a252f; --success: #27ae60; --danger: #e74c3c; --info: #3498db; --bg: #f1f2f6; }
         * { box-sizing: border-box; }
-        body { height: 100dvh; margin: 0; font-family: 'Segoe UI', sans-serif; background: var(--bg); overflow: hidden; }
+        body { height: 100dvh; margin: 0; font-family: 'Segoe UI', sans-serif; background: var(--bg); overflow-y: auto; }
         
         #login-screen { position: fixed; inset: 0; background: var(--primary); z-index: 9999; display: flex; align-items: center; justify-content: center; padding: 20px; }
         .login-card { background: white; padding: 30px; border-radius: 15px; width: 100%; max-width: 350px; text-align: center; }
         
         .main-wrapper { display: none; flex-direction: column; height: 100%; padding: 10px; }
-        .header-bar { display: flex; justify-content: space-between; align-items: center; background: var(--manager); color: white; padding: 12px; border-radius: 8px; margin-bottom: 10px; }
+        .header-bar { display: flex; justify-content: space-between; align-items: center; background: var(--manager); color: white; padding: 12px; border-radius: 8px; margin-bottom: 10px; flex-wrap: wrap; gap: 10px; }
         
         .stats { display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 10px; margin-bottom: 10px; }
         .card { background: white; padding: 12px; border-radius: 8px; border-left: 5px solid var(--manager); box-shadow: 0 2px 5px rgba(0,0,0,0.05); }
@@ -25,12 +25,16 @@
 
         .btn-top { background: var(--danger); color: white; border: none; padding: 8px 15px; border-radius: 5px; font-weight: bold; cursor: pointer; font-size: 12px; }
         
-        .content { display: grid; grid-template-columns: 320px 1fr; gap: 10px; flex: 1; min-height: 0; }
+        .content { display: grid; grid-template-columns: 320px 1fr; gap: 10px; flex: 1; align-items: start; }
         @media (max-width: 850px) { .content { grid-template-columns: 1fr; } }
 
-        /* CORRIGIDO: overflow-y: auto garante que o painel role e o botão não suma */
-        .panel { background: white; border-radius: 8px; padding: 15px; border: 1px solid #ddd; display: flex; flex-direction: column; overflow-y: auto; }
-        .scroll { flex: 1; overflow-y: auto; }
+        /* Nova divisão da coluna esquerda */
+        .left-column { display: flex; flex-direction: column; gap: 10px; }
+        
+        .panel { background: white; border-radius: 8px; padding: 15px; border: 1px solid #ddd; display: flex; flex-direction: column; }
+        .panel-scrollable { max-height: 400px; overflow-y: auto; }
+        
+        .scroll { overflow-x: auto; }
         
         label { font-size: 12px; font-weight: bold; display: block; margin-top: 10px; }
         select, input { width: 100%; padding: 10px; border: 1px solid #ddd; border-radius: 6px; margin-top: 5px; }
@@ -38,10 +42,10 @@
         .btn { width: 100%; padding: 12px; border: none; border-radius: 6px; font-weight: bold; cursor: pointer; color: white; margin-top: 10px; }
         .btn-add { background: var(--success); }
         
-        table { width: 100%; border-collapse: collapse; font-size: 13px; }
+        table { width: 100%; border-collapse: collapse; font-size: 13px; min-width: 500px; }
         th { background: #f8f9fa; padding: 12px; text-align: left; position: sticky; top: 0; z-index: 10; border-bottom: 2px solid #ddd; }
         td { padding: 12px; border-bottom: 1px solid #eee; }
-        .btn-edit { background: var(--info); border: none; color: white; padding: 5px 8px; border-radius: 4px; cursor: pointer; }
+        .btn-edit { background: var(--info); border: none; color: white; padding: 6px 10px; border-radius: 4px; cursor: pointer; font-weight: bold;}
         
         .badge-op { padding: 12px; background: #e8f4f8; border: 1px solid #b6d4fe; border-radius: 6px; margin-top: 10px; }
         .op-on { color: var(--success); font-weight: bold; font-size: 15px; display: flex; align-items: center; gap: 5px; }
@@ -66,9 +70,9 @@
 <div class="main-wrapper" id="main-content">
     <div class="header-bar">
         <span><i class="fa-solid fa-crown"></i> <b>CONTROLE TOTAL DO PROFESSOR</b></span>
-        <div style="display:flex; gap:10px;">
-            <button onclick="window.gerarRelatorioGerencial()" style="background:rgba(255,255,255,0.2); color:white; border:none; padding:5px 10px; border-radius:5px; cursor:pointer;"><i class="fa-solid fa-file-pdf"></i> PDF DO DIA GERAL</button>
-            <button onclick="window.reiniciarApp()" style="background:var(--danger); color:white; border:none; padding:5px 10px; border-radius:5px; cursor:pointer; font-weight:bold;">ZERAR TUDO (NOVO DIA)</button>
+        <div style="display:flex; gap:10px; flex-wrap: wrap;">
+            <button onclick="window.gerarRelatorioGerencial()" style="background:rgba(255,255,255,0.2); color:white; border:none; padding:8px 12px; border-radius:5px; cursor:pointer; font-weight:bold;"><i class="fa-solid fa-file-pdf"></i> PDF DO DIA GERAL</button>
+            <button onclick="window.reiniciarApp()" style="background:var(--danger); color:white; border:none; padding:8px 12px; border-radius:5px; cursor:pointer; font-weight:bold;">ZERAR TUDO (NOVO DIA)</button>
         </div>
     </div>
 
@@ -80,32 +84,38 @@
     </div>
 
     <div class="content">
-        <div class="panel">
-            <h4 style="margin:0"><i class="fa-solid fa-desktop"></i> CAIXA AGORA (ONLINE)</h4>
-            <div id="status-operador" class="badge-op">
-                <div class="op-off">Nenhum operador logado agora.</div>
+        <div class="left-column">
+            
+            <div class="panel">
+                <h4 style="margin:0"><i class="fa-solid fa-cart-plus"></i> Abastecer Loja</h4>
+                <label>Selecione o Produto:</label>
+                <select id="prod-select">
+                    <optgroup label="Cafés"><option>Café P</option><option>Café M</option><option>Café G</option><option>Café Extra</option><option>Café Especial</option></optgroup>
+                    <optgroup label="Bebidas"><option>Coca Lata</option><option>Coquinha</option><option>Guaraná Nat.</option><option>Água Gás</option><option>Água Nat.</option><option>Rodízio Cana</option><option>Caldo Garrafa</option></optgroup>
+                    <optgroup label="Alimentos"><option>Pastel Especial</option><option>Pastel Comum</option><option>Salgado</option><option>Bolo Fatia</option></optgroup>
+                    <optgroup label="Outros"><option>Cigarro Var.</option><option>Cigarro G</option><option>Bala Drop</option></optgroup>
+                </select>
+                <label>Quantidade a adicionar:</label>
+                <input type="number" id="prod-qty" value="10">
+                <button class="btn btn-add" onclick="window.lancarRapido()"><i class="fa-solid fa-plus"></i> SOMAR AO ESTOQUE</button>
             </div>
 
-            <hr style="margin: 15px 0; border:none; border-top:1px solid #eee;">
-
-            <h4 style="margin:0"><i class="fa-solid fa-cart-plus"></i> Abastecer Loja</h4>
-            <select id="prod-select">
-                <optgroup label="Cafés"><option>Café P</option><option>Café M</option><option>Café G</option><option>Café Extra</option><option>Café Especial</option></optgroup>
-                <optgroup label="Bebidas"><option>Coca Lata</option><option>Coquinha</option><option>Guaraná Nat.</option><option>Água Gás</option><option>Água Nat.</option><option>Rodízio Cana</option><option>Caldo Garrafa</option></optgroup>
-                <optgroup label="Alimentos"><option>Pastel Especial</option><option>Pastel Comum</option><option>Salgado</option><option>Bolo Fatia</option></optgroup>
-                <optgroup label="Outros"><option>Cigarro Var.</option><option>Cigarro G</option><option>Bala Drop</option></optgroup>
-            </select>
-            <input type="number" id="prod-qty" value="10">
-            <button class="btn btn-add" style="margin-bottom: 5px;" onclick="window.lancarRapido()">SOMAR AO ESTOQUE</button>
-
-            <hr style="margin: 15px 0; border:none; border-top:1px solid #eee;">
-
-            <h4 style="margin:0 0 10px 0"><i class="fa-solid fa-file-invoice"></i> CAIXAS ENCERRADOS HOJE</h4>
-            <div id="lista-turnos" style="flex: 1; overflow-y: auto; padding-right:5px; min-height: 100px;">
+            <div class="panel panel-scrollable">
+                <h4 style="margin:0"><i class="fa-solid fa-desktop"></i> CAIXA AGORA (ONLINE)</h4>
+                <div id="status-operador" class="badge-op">
+                    <div class="op-off">Nenhum operador logado.</div>
                 </div>
+
+                <hr style="margin: 15px 0; border:none; border-top:1px solid #eee;">
+
+                <h4 style="margin:0 0 10px 0"><i class="fa-solid fa-file-invoice"></i> CAIXAS ENCERRADOS</h4>
+                <div id="lista-turnos">
+                    </div>
+            </div>
+
         </div>
 
-        <div class="panel">
+        <div class="panel" style="height: 100%;">
             <h4 style="margin:0 0 10px 0"><i class="fa-solid fa-list-check"></i> Auditoria de Lançamentos (Estoque do Dia)</h4>
             <div class="scroll">
                 <table>
@@ -116,7 +126,7 @@
                             <th>Vendido</th>
                             <th>Saída (Perda)</th>
                             <th>Saldo Físico</th>
-                            <th>Editar</th>
+                            <th>Ação</th>
                         </tr>
                     </thead>
                     <tbody id="audit-table"></tbody>
@@ -159,11 +169,10 @@
         const p = document.getElementById('login-pass').value;
         if(u === "ADM" && p === "bla19841984") {
             document.getElementById('login-screen').style.display = 'none';
-            document.getElementById('main-content').style.display = 'flex';
+            document.getElementById('main-content').style.display = 'block';
         } else { alert("Login ou senha incorretos!"); }
     };
 
-    // ESCUTA O BANCO DE DADOS GERAL
     onValue(ref(db, 'lanches/'), (snapshot) => {
         const dbNuvem = snapshot.val() || {};
         dadosAtuais = dbNuvem.estoque_manual || {};
@@ -171,7 +180,7 @@
         histDespesas = dbNuvem.despesas ? Object.values(dbNuvem.despesas) : [];
         turnosEncerradosGlobais = dbNuvem.turnos_encerrados || {};
         
-        // 1. Atualiza Aba Operador Online
+        // 1. Atualiza Status do Operador Online
         const opStatus = dbNuvem.status_operador || { online: false };
         const divOp = document.getElementById('status-operador');
         if (opStatus.online) {
@@ -190,7 +199,7 @@
             divOp.style.borderColor = "#b6d4fe";
         }
 
-        // 2. Renderiza Turnos Encerrados (Listagem para baixar o PDF do Funcionario)
+        // 2. Renderiza Turnos Encerrados
         const divTurnos = document.getElementById('lista-turnos');
         divTurnos.innerHTML = "";
         if(Object.keys(turnosEncerradosGlobais).length === 0) {
@@ -201,9 +210,9 @@
                 divTurnos.innerHTML += `
                 <div class="turno-card">
                     <h5><span><i class="fa-solid fa-user"></i> ${t.operador.toUpperCase()}</span> <span style="font-size:10px; color:#666; font-weight:normal;">${t.data_fechamento}</span></h5>
-                    <div style="font-size:12px; margin-bottom:5px; color: var(--success); font-weight:bold;">Gaveta (Dinheiro): R$ ${gaveta.toFixed(2)}</div>
-                    <button class="btn-edit" style="width:100%; font-size:11px; padding: 8px;" onclick="window.baixarRelatorioDeUmTurno('${id}')">
-                        <i class="fa-solid fa-download"></i> Baixar Relatório Deste Caixa
+                    <div style="font-size:12px; margin-bottom:8px; color: var(--success); font-weight:bold;">Gaveta (Dinheiro): R$ ${gaveta.toFixed(2)}</div>
+                    <button class="btn-edit" style="width:100%; font-size:12px; padding: 10px;" onclick="window.baixarRelatorioDeUmTurno('${id}')">
+                        <i class="fa-solid fa-download"></i> Baixar PDF Deste Turno
                     </button>
                 </div>`;
             });
@@ -227,7 +236,7 @@
                     <td>${info.entrada}</td>
                     <td>${info.vendido}</td>
                     <td>${info.saida}</td>
-                    <td style="color:${saldo < 0 ? 'red' : 'green'}; font-weight:bold; font-size: 16px;">${saldo}</td>
+                    <td style="color:${saldo < 0 ? 'red' : 'green'}; font-weight:900; font-size: 15px;">${saldo}</td>
                     <td><button class="btn-edit" onclick="window.abrirModalEdicao('${prod}', ${info.entrada}, ${info.vendido}, ${info.saida})"><i class="fa-solid fa-pencil"></i></button></td>
                 </tr>`;
         });
@@ -255,7 +264,6 @@
         document.getElementById('saldo-dinheiro').innerText = `R$ ${saldoDinheiroLivre.toFixed(2).replace('.', ',')}`;
     }
 
-    // BUG CORRIGIDO: Lança a quantidade e reseta o input
     window.lancarRapido = () => {
         const p = document.getElementById('prod-select').value;
         const q = parseInt(document.getElementById('prod-qty').value);
@@ -285,12 +293,16 @@
     };
 
     window.reiniciarApp = () => {
-        if(confirm("LIMPAR TUDO? Apagará vendas, despesas, turnos e estoque da nuvem! Isso é feito no fim do dia de trabalho.")) {
-            remove(ref(db, 'lanches/'));
+        if(confirm("LIMPAR TUDO? Apagará vendas, despesas e turnos da nuvem (O estoque será mantido).")) {
+            remove(ref(db, 'lanches/vendas'));
+            remove(ref(db, 'lanches/despesas'));
+            remove(ref(db, 'lanches/turnos_encerrados'));
+            remove(ref(db, 'lanches/status_operador'));
+            alert("Dia encerrado e zerado para um novo ciclo!");
         }
     };
 
-    // --- FUNÇÃO EXCLUSIVA: GERAR O PDF DO TURNO DO FUNCIONÁRIO (COM TRAVAS CONTRA BUGS) ---
+    // --- FUNÇÃO CORRIGIDA: BAIXAR PDF DO TURNO DO FUNCIONÁRIO ---
     window.baixarRelatorioDeUmTurno = (idTurno) => {
         const turno = turnosEncerradosGlobais[idTurno];
         if(!turno) return alert("Turno não encontrado.");
@@ -308,15 +320,13 @@
             turno.historico_detalhado.forEach(reg => {
                 if(reg.tipo_registro === "Venda") {
                     let rI={}; 
-                    if(reg.itens) {
-                        reg.itens.forEach(i=>rI[i.nome]=(rI[i.nome]||0)+1);
-                    }
+                    if(reg.itens) { reg.itens.forEach(i=>rI[i.nome]=(rI[i.nome]||0)+1); }
                     let det = Object.entries(rI).map(([n,q])=>`${q}x ${n}`).join(', ');
-                    rows.push([reg.horario, "Venda", det, reg.metodo, `R$ ${reg.total.toFixed(2)}`]);
+                    rows.push([reg.horario || "", "Venda", det, reg.metodo || "", `R$ ${(reg.total||0).toFixed(2)}`]);
                 } else if (reg.tipo_registro === "Despesa (Dinheiro)") {
-                    rows.push([reg.horario, "Despesa ($)", reg.motivo, "Dinheiro", `- R$ ${reg.total.toFixed(2)}`]);
+                    rows.push([reg.horario || reg.hora || "", "Despesa ($)", reg.motivo || "", "Dinheiro", `- R$ ${(reg.total||reg.valor||0).toFixed(2)}`]);
                 } else if (reg.tipo_registro === "Despesa (Produto)") {
-                    rows.push([reg.horario, "Saída (Est)", `${reg.qtd}x ${reg.nomeProd} (${reg.motivo})`, "-", "-"]);
+                    rows.push([reg.horario || reg.hora || "", "Saída (Est)", `${reg.qtd||0}x ${reg.nomeProd||""} (${reg.motivo||""})`, "-", "-"]);
                 }
             });
         }
@@ -328,11 +338,19 @@
 
         doc.setFontSize(11); doc.text("RESUMO FINANCEIRO DO TURNO:", 10, py);
         doc.setFontSize(9);
-        doc.text(`(+) Dinheiro: R$ ${(turno.vendas_dinheiro || 0).toFixed(2)} | (+) Cartão: R$ ${(turno.vendas_cartao || 0).toFixed(2)}`, 10, py+6);
-        doc.text(`(-) Despesas do Caixa: R$ ${(turno.despesas || 0).toFixed(2)}`, 10, py+12);
         
-        doc.setFontSize(11); doc.text(`DEVE TER NA GAVETA (Fundo + Dinheiro - Despesa): R$ ${(turno.deve_ter_na_gaveta || 0).toFixed(2)}`, 10, py+20);
-        doc.setFontSize(9); doc.text(`* Fiado: R$ ${(turno.fiado || 0).toFixed(2)} | * Consumo: R$ ${(turno.consumo || 0).toFixed(2)}`, 10, py+28);
+        // Travas para evitar erro de .toFixed(2) se as variáveis vierem vazias
+        const totDinheiro = turno.vendas_dinheiro || 0;
+        const totCartao = turno.vendas_cartao || 0;
+        const totDespesas = turno.despesas || 0;
+        const gaveta = turno.deve_ter_na_gaveta || 0;
+        const fiado = turno.fiado || 0;
+
+        doc.text(`(+) Dinheiro: R$ ${totDinheiro.toFixed(2)} | (+) Cartão: R$ ${totCartao.toFixed(2)}`, 10, py+6);
+        doc.text(`(-) Despesas do Caixa: R$ ${totDespesas.toFixed(2)}`, 10, py+12);
+        
+        doc.setFontSize(11); doc.text(`DEVE TER NA GAVETA (Fundo + Dinheiro - Despesa): R$ ${gaveta.toFixed(2)}`, 10, py+20);
+        doc.setFontSize(9); doc.text(`* Fiado pendente deste turno: R$ ${fiado.toFixed(2)}`, 10, py+28);
 
         doc.save(`Turno_${turno.operador}_${turno.data_fechamento.replace(/[\/:]/g, '-')}.pdf`);
     };
@@ -370,15 +388,15 @@
                 let res={}; 
                 if(v.itens) v.itens.forEach(i=>res[i.nome]=(res[i.nome]||0)+1);
                 let det = Object.entries(res).map(([n,q])=>`${q}x ${n}`).join(', ');
-                rowsT.push([v.horario, v.operador, "Venda", det, v.metodo, `R$ ${v.total.toFixed(2)}`]);
+                rowsT.push([v.horario || "", v.operador || "", "Venda", det, v.metodo || "", `R$ ${(v.total||0).toFixed(2)}`]);
             }
         });
         
         histDespesas.forEach(d => {
-            rowsT.push([d.hora, d.operador, "Despesa", d.motivo, "Dinheiro", `-R$ ${d.valor.toFixed(2)}`]);
+            rowsT.push([d.hora || "", d.operador || "", "Despesa", d.motivo || "", "Dinheiro", `-R$ ${(d.valor||0).toFixed(2)}`]);
         });
 
-        rowsT.sort((a, b) => a[0].localeCompare(b[0]));
+        rowsT.sort((a, b) => (a[0] || "").localeCompare(b[0] || ""));
 
         doc.autoTable({ startY: 85, head: [['Hora', 'Op.', 'Tipo', 'Itens', 'Pgto', 'Valor']], body: rowsT, styles: { fontSize: 7 } });
 
