@@ -355,12 +355,13 @@
         btn.classList.add('active');
     };
 
-    // MÁGICA FINAL: ENVIAR O TURNO PARA O GERENTE
+    // A MÁGICA FINAL: BAIXA O PDF LOCALMENTE E MANDA PRO GERENTE
     window.trocarTurno = () => {
-        if(confirm("Encerrar seu caixa? O relatório do seu turno será enviado para o Gerente.")) {
+        if(confirm("Encerrar seu caixa? Seu relatório será baixado agora e enviado ao Gerente.")) {
             
+            window.gerarRelatorioTurno(); // Baixa o PDF para o operador
+
             if(navigator.onLine) {
-                // Junta os dados do turno e envia para uma pasta especial no Firebase
                 const fundo = parseFloat(localStorage.getItem('fundoOperador') || 0);
                 const historico = JSON.parse(localStorage.getItem('historicoTurno') || "[]");
                 
@@ -381,19 +382,63 @@
                     fiado: tF,
                     despesas: tDes,
                     deve_ter_na_gaveta: (fundo + tD - tDes),
-                    historico_detalhado: historico // Manda tudo que ele fez
+                    historico_detalhado: historico
                 };
 
-                // Salva na nuvem para o gerente ver depois
                 push(ref(db, 'lanches/turnos_encerrados'), resumoTurno);
-                remove(ref(db, 'lanches/status_operador')); // Desliga ele da tela online
+                remove(ref(db, 'lanches/status_operador')); 
             } else {
-                alert("Você está Offline. O sistema vai limpar o caixa, mas o Gerente não receberá o resumo online agora.");
+                alert("Você está Offline. O caixa será fechado, mas o Gerente só receberá os dados quando a internet voltar.");
             }
 
-            localStorage.clear();
+            localStorage.removeItem('operadorLogado');
+            localStorage.removeItem('fundoOperador');
+            localStorage.removeItem('historicoTurno');
+            localStorage.removeItem('admLogado');
             location.reload();
         }
+    };
+
+    window.gerarRelatorioTurno = () => {
+        const { jsPDF } = window.jspdf;
+        const doc = new jsPDF();
+        const f = parseFloat(localStorage.getItem('fundoOperador') || 0);
+        let hist = JSON.parse(localStorage.getItem('historicoTurno') || "[]");
+        
+        doc.setFontSize(16); doc.text("FECHAMENTO DE CAIXA - Lanches do Professor", 10, 15);
+        doc.setFontSize(10); doc.text(`Operador: ${dbLocal.funcionarioAtivo.toUpperCase()} | Data: ${new Date().toLocaleDateString()}`, 10, 22);
+        doc.text(`Fundo Recebido: R$ ${f.toFixed(2)}`, 10, 28);
+
+        if(hist.length === 0) { doc.text("Nenhuma movimentação.", 10, 40); doc.save(`Caixa_${dbLocal.funcionarioAtivo}.pdf`); return; }
+
+        let tD=0, tC=0, tF=0, tCo=0, tDes=0;
+        const rows = [];
+        hist.forEach(r => {
+            if(r.tipo_registro === "Venda") {
+                let rI={}; r.itens.forEach(i=>rI[i.nome]=(rI[i.nome]||0)+1);
+                let det = Object.entries(rI).map(([n,q])=>`${q}x ${n}`).join(', ');
+                rows.push([r.horario, "Venda", det, r.metodo, `R$ ${r.total.toFixed(2)}`]);
+                if(r.metodo==='Dinheiro') tD+=r.total; if(r.metodo==='Cartão') tC+=r.total;
+                if(r.metodo==='Fiado') tF+=r.total; if(r.metodo==='Consumo') tCo+=r.total;
+            } else if (r.tipo_registro === "Despesa (Dinheiro)") {
+                rows.push([r.horario, "Despesa", r.motivo, "Dinheiro", `- R$ ${r.total.toFixed(2)}`]); tDes+=r.total;
+            } else if (r.tipo_registro === "Despesa (Produto)") {
+                rows.push([r.horario, "Saída (Est)", `${r.qtd}x ${r.nomeProd} (${r.motivo})`, "-", "-"]);
+            }
+        });
+
+        doc.autoTable({ startY: 35, head: [['Hora', 'Tipo', 'Detalhes', 'Método', 'Valor']], body: rows, styles: {fontSize: 8} });
+        let py = doc.lastAutoTable.finalY + 10;
+        if(py>250){doc.addPage(); py=20;}
+
+        doc.setFontSize(11); doc.text("RESUMO FINANCEIRO:", 10, py);
+        doc.setFontSize(9);
+        doc.text(`(+) Dinheiro: R$ ${tD.toFixed(2)} | (+) Cartão: R$ ${tC.toFixed(2)}`, 10, py+6);
+        doc.text(`(-) Despesas do Caixa: R$ ${tDes.toFixed(2)}`, 10, py+12);
+        doc.setFontSize(11); doc.text(`DEVE TER NA GAVETA (Fundo + Dinheiro - Despesa): R$ ${(f+tD-tDes).toFixed(2)}`, 10, py+20);
+        doc.setFontSize(9); doc.text(`* Fiado: R$ ${tF.toFixed(2)} | * Consumo: R$ ${tCo.toFixed(2)}`, 10, py+28);
+
+        doc.save(`Fechamento_${dbLocal.funcionarioAtivo}_${new Date().toLocaleDateString().replace(/[\/:]/g, '-')}.pdf`);
     };
 </script>
 </body>
