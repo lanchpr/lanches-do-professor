@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>Lanches do Professor - PDV GIGANTE OFFLINE/ONLINE</title>
+    <title>Lanches do Professor - PDV GIGANTE</title>
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
     <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf-autotable/3.5.28/jspdf.plugin.autotable.min.js"></script>
@@ -119,7 +119,7 @@
                         <div class="item-card" onclick="window.addItem('Água Gás', 4.00)"><i class="fa-solid fa-droplet"></i><span class="item-name">Água Gás</span><span class="item-price">R$ 4,00</span></div>
                         <div class="item-card" onclick="window.addItem('Água Nat.', 2.00)"><i class="fa-solid fa-droplet"></i><span class="item-name">Água Nat.</span><span class="item-price">R$ 2,00</span></div>
                         <div class="item-card" onclick="window.addItem('Rodízio Cana', 5.00)"><i class="fa-solid fa-seedling"></i><span class="item-name">Rodízio Cana</span><span class="item-price">R$ 5,00</span></div>
-                        <div class="item-card" onclick="window.addItem('Caldo Garrafa', 6.00)"><i class="fa-solid fa-bottle-droplet"></i><span class="item-name">Caldo Garrafa</span><span class="item-price">R$ 6,00</span></div>
+                        <div class="item-card" onclick="window.addItem('Caldo Garrafa', 8.00)"><i class="fa-solid fa-bottle-droplet"></i><span class="item-name">Caldo Garrafa</span><span class="item-price">R$ 8,00</span></div>
                     </div>
                     <div id="cat-alimento" class="items-grid category-content" style="display:none">
                         <div class="item-card" onclick="window.addItem('Pastel Especial', 8.00)"><i class="fa-solid fa-star"></i><span class="item-name">Pastel Esp.</span><span class="item-price">R$ 8,00</span></div>
@@ -176,6 +176,12 @@
     const statusEl = document.getElementById('status-net');
     window.addEventListener('online', () => { statusEl.className = 'net-on'; statusEl.innerText = 'ONLINE'; sincronizarVendasOffline(); });
     window.addEventListener('offline', () => { statusEl.className = 'net-off'; statusEl.innerText = 'OFFLINE'; });
+
+    // Função de Segurança para remover acentos e espaços que quebram o banco
+    function sanitizeKey(key) {
+        if (!key) return "";
+        return key.normalize("NFD").replace(/[\u0300-\u036f]/g, "").replace(/[^a-zA-Z0-9]/g, "").toLowerCase();
+    }
 
     window.onload = () => {
         const sessaoAtiva = localStorage.getItem('operadorLogado');
@@ -267,7 +273,10 @@
         localStorage.setItem('historicoTurno', JSON.stringify(historico));
 
         let resumoItens = {};
-        carrinho.forEach(i => resumoItens[i.nome] = (resumoItens[i.nome] || 0) + 1);
+        carrinho.forEach(i => {
+            let ch = sanitizeKey(i.nome);
+            resumoItens[ch] = (resumoItens[ch] || 0) + 1;
+        });
 
         if (navigator.onLine) {
             try {
@@ -276,11 +285,11 @@
                 const snap = await get(estRef);
                 const estAt = snap.val() || {};
 
-                Object.keys(resumoItens).forEach(nProd => {
-                    const q = resumoItens[nProd];
-                    const info = estAt[nProd] || { entrada:0, vendido:0, saida:0 };
+                Object.keys(resumoItens).forEach(ch => {
+                    const q = resumoItens[ch];
+                    const info = estAt[ch] || { entrada:0, vendido:0, saida:0, nome_exibicao: carrinho.find(item => sanitizeKey(item.nome) === ch).nome };
                     if (metodo === 'Consumo') info.saida += q; else info.vendido += q;
-                    set(ref(db, `lanches/estoque_manual/${nProd}`), info);
+                    set(ref(db, `lanches/estoque_manual/${ch}`), info);
                 });
             } catch(e) { salvarOffline(venda, resumoItens); }
         } else {
@@ -304,11 +313,11 @@
 
             for (let obj of vendasOffline) {
                 push(ref(db, 'lanches/vendas'), obj.venda);
-                Object.keys(obj.resumo).forEach(nProd => {
-                    const q = obj.resumo[nProd];
-                    if(!estAt[nProd]) estAt[nProd] = {entrada:0, vendido:0, saida:0};
-                    if (obj.venda.metodo === 'Consumo') estAt[nProd].saida += q; else estAt[nProd].vendido += q;
-                    set(ref(db, `lanches/estoque_manual/${nProd}`), estAt[nProd]);
+                Object.keys(obj.resumo).forEach(ch => {
+                    const q = obj.resumo[ch];
+                    if(!estAt[ch]) estAt[ch] = {entrada:0, vendido:0, saida:0, nome_exibicao: obj.venda.itens.find(item => sanitizeKey(item.nome) === ch).nome};
+                    if (obj.venda.metodo === 'Consumo') estAt[ch].saida += q; else estAt[ch].vendido += q;
+                    set(ref(db, `lanches/estoque_manual/${ch}`), estAt[ch]);
                 });
             }
             vendasOffline = []; localStorage.setItem('vendasPendentes', "[]");
@@ -332,14 +341,15 @@
              const mot = prompt("MOTIVO DA SAÍDA:");
              const q = parseInt(prompt("QUANTIDADE:", "1"));
              if(prod && mot && !isNaN(q)) {
+                 const ch = sanitizeKey(prod);
                  const despProd = { tipo_registro: "Despesa (Produto)", horario: new Date().toLocaleTimeString('pt-BR'), operador: dbLocal.funcionarioAtivo, nomeProd: prod, qtd: q, motivo: mot };
                  let hist = JSON.parse(localStorage.getItem('historicoTurno') || "[]");
                  hist.push(despProd); localStorage.setItem('historicoTurno', JSON.stringify(hist));
                  
                  if(navigator.onLine) {
-                     const pRef = ref(db, `lanches/estoque_manual/${prod}`);
+                     const pRef = ref(db, `lanches/estoque_manual/${ch}`);
                      const snap = await get(pRef);
-                     const inf = snap.val() || {entrada:0, vendido:0, saida:0};
+                     const inf = snap.val() || {entrada:0, vendido:0, saida:0, nome_exibicao: prod};
                      set(pRef, {...inf, saida: inf.saida + q});
                      push(ref(db, 'lanches/vendas'), { operador: dbLocal.funcionarioAtivo, itens: [{nome: prod, preco: 0}], total: 0, metodo: "Despesa/Perda", observacao: mot + ` (Qtd: ${q})`});
                  }
@@ -355,11 +365,10 @@
         btn.classList.add('active');
     };
 
-    // A MÁGICA FINAL: BAIXA O PDF LOCALMENTE E MANDA PRO GERENTE
     window.trocarTurno = () => {
         if(confirm("Encerrar seu caixa? Seu relatório será baixado agora e enviado ao Gerente.")) {
             
-            window.gerarRelatorioTurno(); // Baixa o PDF para o operador
+            window.gerarRelatorioTurno(); 
 
             if(navigator.onLine) {
                 const fundo = parseFloat(localStorage.getItem('fundoOperador') || 0);
@@ -368,8 +377,10 @@
                 let tD=0, tC=0, tF=0, tCo=0, tDes=0;
                 historico.forEach(r => {
                     if(r.tipo_registro === "Venda") {
-                        if(r.metodo==='Dinheiro') tD+=r.total; if(r.metodo==='Cartão') tC+=r.total;
-                        if(r.metodo==='Fiado') tF+=r.total; if(r.metodo==='Consumo') tCo+=r.total;
+                        if(r.metodo==='Dinheiro') tD+=r.total; 
+                        if(r.metodo==='Cartão') tC+=r.total;
+                        if(r.metodo==='Fiado') tF+=r.total; 
+                        if(r.metodo==='Consumo') tCo+=r.total;
                     } else if (r.tipo_registro === "Despesa (Dinheiro)") { tDes+=r.total; }
                 });
 
@@ -380,6 +391,7 @@
                     vendas_dinheiro: tD,
                     vendas_cartao: tC,
                     fiado: tF,
+                    consumo: tCo, 
                     despesas: tDes,
                     deve_ter_na_gaveta: (fundo + tD - tDes),
                     historico_detalhado: historico
@@ -391,11 +403,13 @@
                 alert("Você está Offline. O caixa será fechado, mas o Gerente só receberá os dados quando a internet voltar.");
             }
 
-            localStorage.removeItem('operadorLogado');
-            localStorage.removeItem('fundoOperador');
-            localStorage.removeItem('historicoTurno');
-            localStorage.removeItem('admLogado');
-            location.reload();
+            setTimeout(() => {
+                localStorage.removeItem('operadorLogado');
+                localStorage.removeItem('fundoOperador');
+                localStorage.removeItem('historicoTurno');
+                localStorage.removeItem('admLogado');
+                location.reload();
+            }, 2000);
         }
     };
 
@@ -415,7 +429,8 @@
         const rows = [];
         hist.forEach(r => {
             if(r.tipo_registro === "Venda") {
-                let rI={}; r.itens.forEach(i=>rI[i.nome]=(rI[i.nome]||0)+1);
+                let rI={}; 
+                if (r.itens) { r.itens.forEach(i=>rI[i.nome]=(rI[i.nome]||0)+1); }
                 let det = Object.entries(rI).map(([n,q])=>`${q}x ${n}`).join(', ');
                 rows.push([r.horario, "Venda", det, r.metodo, `R$ ${r.total.toFixed(2)}`]);
                 if(r.metodo==='Dinheiro') tD+=r.total; if(r.metodo==='Cartão') tC+=r.total;
